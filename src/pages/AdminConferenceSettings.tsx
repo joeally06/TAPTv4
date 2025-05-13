@@ -82,7 +82,7 @@ export const AdminConferenceSettings: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -96,7 +96,7 @@ export const AdminConferenceSettings: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error fetching settings:', error);
-      setError(error.message);
+      setError('Failed to load conference settings. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export const AdminConferenceSettings: React.FC = () => {
       setTimeout(() => setSuccess(null), 5000);
     } catch (error: any) {
       console.error('Error saving settings:', error);
-      setError(error.message);
+      setError('Failed to save conference settings. Please try again.');
     } finally {
       setSaving(false);
     }
