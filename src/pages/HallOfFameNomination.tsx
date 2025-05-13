@@ -282,7 +282,7 @@ export const HallOfFameNomination: React.FC = () => {
               {/* Nomination Reason */}
               <div className="mt-6">
                 <label htmlFor="nominationReason" className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason for Nomination <span className="text-red-500">*</span>
+                  Reason for Nomination (max 500 characters) <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   id="nominationReason"
@@ -290,10 +290,14 @@ export const HallOfFameNomination: React.FC = () => {
                   value={formData.nominationReason}
                   onChange={handleChange}
                   required
+                  maxLength={500}
                   rows={4}
                   className="block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
-                  placeholder="Please describe why this person deserves to be nominated..."
+                  placeholder="Please provide a brief description of why this person deserves to be nominated (max 500 characters)..."
                 />
+                <p className="mt-1 text-sm text-gray-500">
+                  {formData.nominationReason.length}/500 characters
+                </p>
               </div>
             </div>
 
