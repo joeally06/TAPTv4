@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle, Users, Calendar, Award, FileText, BookOpen } from 'lucide-react';
+import { 
+  validateMembershipForm, 
+  type MembershipFormData, 
+  type ValidationError,
+  formatPhone 
+} from '../lib/validation';
 
 export const Members: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MembershipFormData>({
     firstName: '',
     lastName: '',
     email: '',
@@ -17,9 +23,17 @@ export const Members: React.FC = () => {
     membershipType: '',
     isNewMember: '',
     hearAboutUs: '',
-    interests: [] as string[],
+    interests: [],
     agreeToTerms: false
   });
+
+  const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const getFieldError = (fieldName: string): string => {
+    return errors.find(error => error.field === fieldName)?.message || '';
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -30,37 +44,90 @@ export const Members: React.FC = () => {
         ...prev,
         [name]: checked
       }));
+    } else if (name === 'phone') {
+      // Format phone number as user types
+      setFormData(prev => ({
+        ...prev,
+        [name]: formatPhone(value)
+      }));
     } else {
       setFormData(prev => ({
         ...prev,
         [name]: value
       }));
     }
+
+    // Clear error for this field when user starts typing
+    setErrors(prev => prev.filter(error => error.field !== name));
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value, checked } = e.target;
     
     setFormData(prev => {
-      if (checked) {
-        return {
-          ...prev,
-          interests: [...prev.interests, value]
-        };
-      } else {
-        return {
-          ...prev,
-          interests: prev.interests.filter(interest => interest !== value)
-        };
-      }
+      const newInterests = checked
+        ? [...prev.interests, value]
+        : prev.interests.filter(interest => interest !== value);
+
+      return {
+        ...prev,
+        interests: newInterests
+      };
     });
+
+    // Clear interests error if at least one is selected
+    if (checked) {
+      setErrors(prev => prev.filter(error => error.field !== 'interests'));
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    // Here you would handle the form submission, like sending the data to your server
-    alert('Thank you for your membership application! We will contact you soon.');
+    setIsSubmitting(true);
+    setErrors([]);
+
+    // Validate form
+    const validationErrors = validateMembershipForm(formData);
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+      setIsSubmitting(false);
+      
+      // Scroll to first error
+      const firstErrorField = document.querySelector(`[name="${validationErrors[0].field}"]`);
+      firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    try {
+      // TODO: Replace with actual API call
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      setSubmitSuccess(true);
+      
+      // Reset form after successful submission
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        organization: '',
+        position: '',
+        membershipType: '',
+        isNewMember: '',
+        hearAboutUs: '',
+        interests: [],
+        agreeToTerms: false
+      });
+
+      // Scroll to top to show success message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      setErrors([{ 
+        field: 'submit', 
+        message: 'An error occurred while submitting your application. Please try again.' 
+      }]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const membershipBenefits = [
@@ -147,8 +214,205 @@ export const Members: React.FC = () => {
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Membership</h1>
-            <p className="text-xl text-gray-200 mb-8 fade-in">Join our community of transportation professionals dedicated to safe and efficient student transportation.</p>
+            <h1 className="text-4xl md:text-5xl font-bold mb-6">Membership Application</h1>
+            <p className="text-xl text-gray-200">Join our community of transportation professionals and access exclusive benefits.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Success Message */}
+      {submitSuccess && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-green-50 border-l-4 border-green-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-5 w-5 text-green-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800">
+                  Application Submitted Successfully
+                </h3>
+                <div className="mt-2 text-sm text-green-700">
+                  <p>Thank you for your membership application! Our team will review your information and contact you soon.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form Section */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white shadow-md rounded-lg p-6 md:p-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* General Error */}
+              {getFieldError('submit') && (
+                <div className="bg-red-50 border-l-4 border-red-400 p-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <p className="text-sm text-red-700">{getFieldError('submit')}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Personal Information */}
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold text-secondary">Personal Information</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('firstName')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    />
+                    {getFieldError('firstName') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('firstName')}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('lastName')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    />
+                    {getFieldError('lastName') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('lastName')}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('email')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    />
+                    {getFieldError('email') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('email')}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Phone <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="(123) 456-7890"
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('phone')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    />
+                    {getFieldError('phone') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('phone')}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Professional Information */}
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold text-secondary">Professional Information</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Organization <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="organization"
+                      value={formData.organization}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('organization')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    />
+                    {getFieldError('organization') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('organization')}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Position <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="position"
+                      value={formData.position}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('position')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    />
+                    {getFieldError('position') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('position')}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-6">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`w-full md:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
+                    isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </div>
+                  ) : (
+                    'Submit Application'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </section>
@@ -212,237 +476,6 @@ export const Members: React.FC = () => {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Membership Application Form */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-secondary mb-4">Join TAPT Today</h2>
-              <p className="text-gray-600">
-                Complete the membership application form below to join TAPT. We'll contact you with further instructions.
-              </p>
-            </div>
-            
-            <form className="bg-white shadow-lg rounded-lg p-8" onSubmit={handleSubmit}>
-              <div className="space-y-6">
-                {/* Personal Information */}
-                <div>
-                  <h3 className="text-lg font-bold text-secondary mb-4">Personal Information</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">First Name*</label>
-                      <input
-                        type="text"
-                        id="firstName"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">Last Name*</label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address*</label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number*</label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Professional Information */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-lg font-bold text-secondary mb-4">Professional Information</h3>
-                  
-                  <div className="grid grid-cols-1 gap-6">
-                    <div>
-                      <label htmlFor="organization" className="block text-sm font-medium text-gray-700">School District/Organization*</label>
-                      <input
-                        type="text"
-                        id="organization"
-                        name="organization"
-                        value={formData.organization}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="position" className="block text-sm font-medium text-gray-700">Position/Title*</label>
-                      <input
-                        type="text"
-                        id="position"
-                        name="position"
-                        value={formData.position}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="membershipType" className="block text-sm font-medium text-gray-700">Membership Type*</label>
-                      <select
-                        id="membershipType"
-                        name="membershipType"
-                        value={formData.membershipType}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      >
-                        <option value="">Select Membership Type</option>
-                        <option value="individual">Individual Membership ($50/year)</option>
-                        <option value="district">District Membership ($200/year)</option>
-                        <option value="vendor">Vendor/Partner Membership ($300/year)</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="isNewMember" className="block text-sm font-medium text-gray-700">Are you a new member?*</label>
-                      <select
-                        id="isNewMember"
-                        name="isNewMember"
-                        value={formData.isNewMember}
-                        onChange={handleInputChange}
-                        required
-                        className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      >
-                        <option value="">Select an option</option>
-                        <option value="yes">Yes, I'm new to TAPT</option>
-                        <option value="no">No, I'm renewing my membership</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="hearAboutUs" className="block text-sm font-medium text-gray-700">How did you hear about TAPT?</label>
-                      <select
-                        id="hearAboutUs"
-                        name="hearAboutUs"
-                        value={formData.hearAboutUs}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      >
-                        <option value="">Select an option</option>
-                        <option value="colleague">From a colleague</option>
-                        <option value="conference">At a conference</option>
-                        <option value="social">Social media</option>
-                        <option value="search">Internet search</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Areas of Interest */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-lg font-bold text-secondary mb-4">Areas of Interest</h3>
-                  <p className="text-gray-600 text-sm mb-4">Select all that apply:</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                      { value: "safety", label: "Safety and Compliance" },
-                      { value: "training", label: "Driver Training" },
-                      { value: "management", label: "Fleet Management" },
-                      { value: "routing", label: "Routing and Scheduling" },
-                      { value: "leadership", label: "Leadership Development" },
-                      { value: "technology", label: "Transportation Technology" }
-                    ].map(interest => (
-                      <div key={interest.value} className="flex items-center">
-                        <input
-                          id={interest.value}
-                          name="interests"
-                          type="checkbox"
-                          value={interest.value}
-                          onChange={handleCheckboxChange}
-                          checked={formData.interests.includes(interest.value)}
-                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <label htmlFor={interest.value} className="ml-3 text-sm text-gray-700">
-                          {interest.label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Terms and Conditions */}
-                <div className="border-t border-gray-200 pt-6">
-                  <div className="flex items-start">
-                    <div className="flex items-center h-5">
-                      <input
-                        id="agreeToTerms"
-                        name="agreeToTerms"
-                        type="checkbox"
-                        checked={formData.agreeToTerms}
-                        onChange={handleInputChange}
-                        required
-                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="ml-3 text-sm">
-                      <label htmlFor="agreeToTerms" className="font-medium text-gray-700">
-                        I agree to the terms and conditions*
-                      </label>
-                      <p className="text-gray-500">
-                        By submitting this application, I agree to abide by the TAPT bylaws and code of ethics.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Submit Button */}
-                <div className="pt-6">
-                  <button
-                    type="submit"
-                    className="w-full inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                  >
-                    Submit Membership Application
-                  </button>
-                  <p className="mt-3 text-sm text-gray-500 text-center">
-                    * Required Fields
-                  </p>
-                </div>
-              </div>
-            </form>
           </div>
         </div>
       </section>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase, verifyUserRole } from '../lib/supabase';
+import { supabase, verifyUserRole, testSupabaseConnection } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
 
@@ -27,24 +27,37 @@ export const AdminLogin: React.FC = () => {
     setSuccess(null);
 
     try {
+      // Step 1: Test connection first
+      const { success: connectionSuccess, error: connectionError } = await testSupabaseConnection();
+      if (!connectionSuccess) {
+        throw new Error(connectionError?.message || 'Unable to connect to the server. Please check your internet connection and try again.');
+      }
+
+      // Step 2: Authentication
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        if (authError.message.includes('Failed to fetch')) {
+          throw new Error('Network connection error. Please check your internet connection and try again.');
+        }
+        throw authError;
+      }
 
       if (!authData.user) {
         throw new Error('No user data returned after login');
       }
 
-      console.log('User authenticated, verifying role...');
-
-      // Verify user role with retries
+      // Step 3: Role verification
+      console.log('User authenticated, verifying role for user:', authData.user.id);
       const userRole = await verifyUserRole(authData.user.id);
+      console.log('Received user role:', userRole);
 
       if (!userRole) {
-        throw new Error('Unable to verify user role. Please try again.');
+        await supabase.auth.signOut();
+        throw new Error('User role not found. Please contact administrator.');
       }
 
       if (userRole !== 'admin') {
@@ -52,18 +65,20 @@ export const AdminLogin: React.FC = () => {
         throw new Error('Unauthorized access. Admin privileges required.');
       }
 
+      // Step 4: Success handling
       setSuccess('Login successful! Redirecting to admin dashboard...');
-      
-      setTimeout(() => {
-        navigate('/admin/conference-settings');
-      }, 1500);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      navigate('/admin/conference-settings');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      setError(error.message || 'An error occurred during login');
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setError(errorMessage);
       
-      if (error.message.includes('Unauthorized access')) {
+      try {
         await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error('Sign out failed:', signOutError);
       }
     } finally {
       setIsLoading(false);

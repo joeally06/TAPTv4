@@ -8,11 +8,10 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   define: {
-    'process.env': {}
-  },
-  server: {
+    'process.env': {},
+  },  server: {
     watch: {
       usePolling: true,
-    },
+    }
   },
 });

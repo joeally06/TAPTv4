@@ -44,11 +44,9 @@ const SupabaseConnectionTest = () => {
 
     testConnection();
   }, []);
-
   return (
     <div className="fixed bottom-16 right-4 p-6 max-w-md bg-white rounded-lg shadow-md z-50">
       <h2 className="text-2xl font-bold text-secondary mb-4">Supabase Connection Test</h2>
-      
       {!connectionStatus.tested ? (
         <div className="flex items-center justify-center">
           <div className="w-8 h-8 border-t-4 border-primary rounded-full animate-spin"></div>
@@ -82,9 +80,22 @@ const SupabaseConnectionTest = () => {
                 {connectionStatus.message}
               </p>
               {connectionStatus.error && (
-                <p className="text-sm leading-5 text-red-700 mt-1">
-                  Error details: {JSON.stringify(connectionStatus.error, null, 2)}
-                </p>
+                <div className="mt-2 text-sm bg-red-50 p-3 rounded">
+                  {connectionStatus.error.networkBlocked ? (
+                    <div>
+                      <p className="font-semibold">Network Access Blocked</p>
+                      <p>Your network appears to be blocking access to Supabase. This is common on school or corporate networks.</p>
+                      <p className="mt-2">Possible solutions:</p>
+                      <ul className="list-disc list-inside mt-1">
+                        <li>Try using a different network connection</li>
+                        <li>Contact your network administrator to allow access to *.supabase.co</li>
+                        <li>Use a mobile hotspot for development</li>
+                      </ul>
+                    </div>
+                  ) : (
+                    <p>Error details: {connectionStatus.error.message || JSON.stringify(connectionStatus.error)}</p>
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -40,34 +40,53 @@ export const AdminConferenceRegistrations: React.FC = () => {
 
   const checkSession = async () => {
     try {
+      setLoading(true);
+      setError(null);
+
+      // Step 1: Get session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        throw new Error(`Session error: ${sessionError.message}`);
+      }
       
       if (!session) {
-        navigate('/admin/login');
-        return;
+        throw new Error('No active session found');
       }
 
-      // Verify admin role
+      // Step 2: Verify admin role
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
         .single();
 
-      if (userError) throw userError;
-
-      if (!userData || userData.role !== 'admin') {
-        await supabase.auth.signOut();
-        navigate('/admin/login');
-        return;
+      if (userError) {
+        throw new Error(`Role verification error: ${userError.message}`);
       }
 
-      fetchRegistrations();
-    } catch (error: any) {
-      console.error('Session check error:', error);
-      navigate('/admin/login');
+      if (!userData || userData.role !== 'admin') {
+        throw new Error('Unauthorized: Admin privileges required');
+      }
+
+      // Step 3: Fetch data only if session and role are valid
+      await fetchRegistrations();
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      console.error('Session check error:', errorMessage);
+      
+      // Clean up and redirect
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error('Sign out failed:', signOutError);
+      }
+      
+      setError(errorMessage);
+      navigate('/admin/login', { replace: true });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,13 +103,47 @@ export const AdminConferenceRegistrations: React.FC = () => {
         `)
         .order(sortField, { ascending: sortDirection === 'asc' });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(`Failed to fetch registrations: ${error.message}`);
+      }
 
-      console.log('Fetched registrations:', data);
-      setRegistrations(data || []);
-    } catch (error: any) {
-      console.error('Error fetching registrations:', error);
-      setError(error.message);
+      if (!data) {
+        setRegistrations([]);
+        return;
+      }
+
+      // Type guard to ensure data matches our interface
+      const isValidRegistration = (item: any): item is ConferenceRegistration => {
+        return (
+          typeof item.id === 'string' &&
+          typeof item.school_district === 'string' &&
+          typeof item.first_name === 'string' &&
+          typeof item.last_name === 'string' &&
+          typeof item.email === 'string' &&
+          typeof item.phone === 'string' &&
+          typeof item.total_attendees === 'number' &&
+          typeof item.total_amount === 'number' &&
+          typeof item.created_at === 'string' &&
+          (!item.attendees || Array.isArray(item.attendees))
+        );
+      };
+
+      const validRegistrations = data.filter(isValidRegistration);
+      
+      if (validRegistrations.length !== data.length) {
+        console.warn('Some registrations had invalid data and were filtered out');
+      }
+
+      setRegistrations(validRegistrations);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      console.error('Error fetching registrations:', errorMessage);
+      setError(errorMessage);
+      
+      // If the error might be due to an invalid session, trigger a session check
+      if (errorMessage.includes('JWT') || errorMessage.includes('authentication')) {
+        checkSession();
+      }
     } finally {
       setLoading(false);
     }

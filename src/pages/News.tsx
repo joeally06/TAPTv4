@@ -1,25 +1,62 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronDown, Search, Tag } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import type { NewsItem, NewsCategory, CategoryOption, NewsFilters } from '../lib/types/news';
+
+const NewsCard: React.FC<{ item: NewsItem; categoryName: string }> = React.memo(({ item, categoryName }) => (
+  <article className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all">
+    <img src={item.image} alt="" className="w-full h-48 object-cover" />
+    <div className="p-6">
+      <div className="flex items-center text-sm text-gray-500 mb-4">
+        <Calendar className="h-4 w-4 mr-2" />
+        {item.date}
+        <Tag className="h-4 w-4 ml-4 mr-2" />
+        {categoryName}
+      </div>
+      <h2 className="text-xl font-bold text-secondary mb-2">{item.title}</h2>
+      <p className="text-gray-600 mb-4">{item.excerpt}</p>
+      <Link
+        to={`/news/${item.id}`}
+        className="text-primary hover:text-primary/80 font-medium"
+      >
+        Read More →
+      </Link>
+    </div>
+  </article>
+));
 
 export const News: React.FC = () => {
+  // Initialize scroll position
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  // Combined filters state to prevent race conditions
+  const [filters, setFilters] = useState<NewsFilters>({
+    searchQuery: '',
+    category: 'all'
+  });
 
-  const categories = [
+  // Memoized categories
+  const categories: CategoryOption[] = useMemo(() => [
     { id: 'all', name: 'All Categories' },
     { id: 'announcements', name: 'Announcements' },
     { id: 'events', name: 'Events' },
     { id: 'safety', name: 'Safety' },
     { id: 'regulations', name: 'Regulations' },
     { id: 'industry', name: 'Industry News' },
-  ];
+  ], []);
 
-  const newsItems = [
+  // Memoized category lookup map
+  const categoryMap = useMemo(() => {
+    return categories.reduce((acc, category) => {
+      acc[category.id] = category.name;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [categories]);
+
+  // Memoized news items
+  const newsItems: NewsItem[] = useMemo(() => [
     {
       id: 1,
       title: "Annual Conference Registration Now Open",
@@ -84,16 +121,37 @@ export const News: React.FC = () => {
       excerpt: "TAPT recognized 12 transportation professionals at its annual awards ceremony. Categories included Driver of the Year, Director of the Year, and Lifetime Achievement Award.",
       image: "https://images.pexels.com/photos/9035381/pexels-photo-9035381.jpeg?auto=compress&cs=tinysrgb&h=300",
     }
-  ];
+  ], []);
 
-  // Filter news items based on search query and category
-  const filteredNews = newsItems.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        item.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    
-    return matchesSearch && matchesCategory;
-  });
+  // Debounced filter updates
+  const updateFilters = useCallback((updates: Partial<NewsFilters>) => {
+    setFilters(prev => ({
+      ...prev,
+      ...updates
+    }));
+  }, []);
+
+  // Memoized search handler with debounce
+  const handleSearch = useCallback((value: string) => {
+    const timeoutId = setTimeout(() => {
+      updateFilters({ searchQuery: value });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [updateFilters]);
+
+  // Memoized filtered news items
+  const filteredNews = useMemo(() => {
+    return newsItems.filter(item => {
+      const matchesSearch = filters.searchQuery === '' || 
+        item.title.toLowerCase().includes(filters.searchQuery.toLowerCase()) || 
+        item.excerpt.toLowerCase().includes(filters.searchQuery.toLowerCase());
+        
+      const matchesCategory = filters.category === 'all' || item.category === filters.category;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [filters, newsItems]);
 
   return (
     <div className="pt-16">
@@ -101,132 +159,60 @@ export const News: React.FC = () => {
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">News & Announcements</h1>
-            <p className="text-xl text-gray-200 mb-8 fade-in">Stay updated with the latest news, events, and important information from TAPT.</p>
+            <h1 className="text-4xl md:text-5xl font-bold mb-6">News & Updates</h1>
+            <p className="text-xl text-gray-200">Stay informed about the latest developments in pupil transportation.</p>
           </div>
         </div>
       </section>
 
-      {/* News Content */}
-      <section className="py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Search and Filter */}
-          <div className="mb-8">
-            <div className="flex flex-col md:flex-row gap-4 md:items-center">
-              {/* Search Bar */}
-              <div className="relative flex-grow max-w-md">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-primary focus:border-primary transition duration-150 ease-in-out"
-                  placeholder="Search news..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              
-              {/* Category Filter */}
-              <div className="relative inline-block text-left">
-                <select
-                  className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-md"
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+      {/* News Filters */}
+      <section className="bg-gray-50 border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="relative flex-1 max-w-lg">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search news..."
+                value={filters.searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+              />
+            </div>
+            
+            <div className="flex space-x-2">
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => updateFilters({ category: category.id })}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    filters.category === category.id
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
                 >
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  {category.name}
+                </button>
+              ))}
             </div>
           </div>
-          
-          {/* News Items */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredNews.length > 0 ? (
-              filteredNews.map((item) => (
-                <article key={item.id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="h-48 overflow-hidden">
-                    <img 
-                      src={item.image} 
-                      alt={item.title} 
-                      className="w-full h-full object-cover object-center transform hover:scale-105 transition-transform duration-500"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center text-sm text-gray-500 mb-2">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      <span>{item.date}</span>
-                      <span className="mx-2">•</span>
-                      <Tag className="h-4 w-4 mr-1" />
-                      <span className="capitalize">{item.category}</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-secondary mb-2">
-                      <Link to={`/news/${item.id}`} className="hover:text-primary transition-colors">
-                        {item.title}
-                      </Link>
-                    </h3>
-                    <p className="text-gray-600 mb-4">{item.excerpt}</p>
-                    <Link 
-                      to={`/news/${item.id}`}
-                      className="text-primary font-medium hover:underline inline-flex items-center"
-                    >
-                      Read More
-                      <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center py-12">
-                <svg className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">No results found</h3>
-                <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filter to find what you're looking for.</p>
-              </div>
-            )}
-          </div>
         </div>
       </section>
 
-      {/* Newsletter Sign-up */}
-      <section className="py-16 bg-primary text-white">
+      {/* News Grid */}
+      <section className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-4">Stay Updated</h2>
-            <p className="text-xl mb-8">Subscribe to our newsletter to receive the latest news and updates directly to your inbox.</p>
-            
-            <form className="sm:flex justify-center">
-              <label htmlFor="email-address" className="sr-only">Email address</label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="w-full px-5 py-3 placeholder-gray-500 focus:ring-white focus:border-white sm:max-w-xs border-white rounded-md text-gray-900"
-                placeholder="Enter your email"
-              />
-              <div className="mt-3 rounded-md shadow sm:mt-0 sm:ml-3 sm:flex-shrink-0">
-                <button
-                  type="submit"
-                  className="w-full flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-primary bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-white"
-                >
-                  Subscribe
-                </button>
-              </div>
-            </form>
-            
-            <p className="mt-3 text-sm text-white/80">
-              We care about your data. Read our <a href="#" className="font-medium text-white underline">Privacy Policy</a>.
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredNews.map((item) => (
+              <NewsCard key={item.id} item={item} categoryName={categoryMap[item.category]} />
+            ))}
           </div>
+
+          {filteredNews.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No news items found matching your criteria.</p>
+            </div>
+          )}
         </div>
       </section>
     </div>
