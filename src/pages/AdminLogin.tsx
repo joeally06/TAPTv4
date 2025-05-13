@@ -22,6 +22,8 @@ export const AdminLogin: React.FC = () => {
 
   const getUserRole = async (userId: string, retryCount = 0): Promise<string | null> => {
     try {
+      console.log(`Attempting to get user role for ID: ${userId} (Attempt ${retryCount + 1}/3)`);
+
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
@@ -33,8 +35,11 @@ export const AdminLogin: React.FC = () => {
         return null;
       }
 
+      console.log('User data received:', userData);
+
       // If no data and we haven't exceeded retry attempts, retry after delay
       if (!userData && retryCount < 3) {
+        console.log(`No user data found, retrying in 1 second... (${retryCount + 1}/3)`);
         await new Promise(resolve => setTimeout(resolve, 1000));
         return getUserRole(userId, retryCount + 1);
       }
@@ -64,11 +69,15 @@ export const AdminLogin: React.FC = () => {
         throw new Error('No user data returned after login');
       }
 
+      console.log('User authenticated successfully:', authData.user.id);
+
       // Wait for trigger to create user profile
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Get user role with retry mechanism
       const userRole = await getUserRole(authData.user.id);
+
+      console.log('Retrieved user role:', userRole);
 
       if (!userRole) {
         throw new Error('Unable to verify user role. Please try again.');
