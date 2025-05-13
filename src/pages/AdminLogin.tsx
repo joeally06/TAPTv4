@@ -29,23 +29,19 @@ export const AdminLogin: React.FC = () => {
         .single();
 
       if (userError) {
-        if (userError.code === 'PGRST116') {
-          // No user profile found
-          return null;
-        }
-        throw userError;
+        console.log('Error fetching user role:', userError);
+        return null;
       }
 
       return userData?.role || null;
     } catch (error) {
-      console.error('Error fetching user role:', error);
+      console.error('Error in getUserRole:', error);
       return null;
     }
   };
 
-  const createUserProfile = async (userId: string) => {
+  const createUserProfile = async (userId: string): Promise<boolean> => {
     try {
-      // Use RPC to create user profile to bypass RLS
       const { error: rpcError } = await supabase
         .rpc('create_user_profile', {
           user_id: userId,
@@ -53,11 +49,14 @@ export const AdminLogin: React.FC = () => {
         });
 
       if (rpcError) {
-        throw rpcError;
+        console.error('RPC Error creating user profile:', rpcError);
+        return false;
       }
+
+      return true;
     } catch (error) {
-      console.error('Error creating user profile:', error);
-      throw new Error('Failed to create user profile');
+      console.error('Error in createUserProfile:', error);
+      return false;
     }
   };
 
@@ -84,11 +83,18 @@ export const AdminLogin: React.FC = () => {
 
       // If no user profile exists, create one
       if (!userRole) {
-        await createUserProfile(authData.user.id);
+        const profileCreated = await createUserProfile(authData.user.id);
+        
+        if (!profileCreated) {
+          throw new Error('Failed to create user profile');
+        }
+
+        // Wait a moment for the profile to be created and fetch the role again
+        await new Promise(resolve => setTimeout(resolve, 1000));
         userRole = await getUserRole(authData.user.id);
         
         if (!userRole) {
-          throw new Error('Failed to create or retrieve user profile');
+          throw new Error('Failed to retrieve user profile after creation');
         }
       }
 
