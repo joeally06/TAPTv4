@@ -40,7 +40,13 @@ export const Navbar = () => {
     { name: 'Members', path: '/members' },
     { name: 'Contact', path: '/contact' },
     { name: 'Conference Registration', path: '/conference-registration' },
-    { name: 'Hall of Fame Nomination', path: '/hall-of-fame-nomination' },
+    { 
+      name: 'Hall of Fame',
+      path: '/hall-of-fame',
+      subItems: [
+        { name: 'Submit Nomination', path: '/hall-of-fame-nomination' }
+      ]
+    }
   ];
 
   const isActive = (path: string) => {
@@ -67,17 +73,37 @@ export const Navbar = () => {
 
           <div className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.path}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive(item.path)
-                    ? 'text-primary border-b-2 border-primary'
-                    : 'text-gray-700 hover:text-primary'
-                }`}
-              >
-                {item.name}
-              </Link>
+              <div key={item.name} className="relative group">
+                <Link
+                  to={item.path}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(item.path)
+                      ? 'text-primary border-b-2 border-primary'
+                      : 'text-gray-700 hover:text-primary'
+                  }`}
+                >
+                  <span className="flex items-center">
+                    {item.name}
+                    {item.subItems && <ChevronDown className="ml-1 h-4 w-4" />}
+                  </span>
+                </Link>
+                
+                {item.subItems && (
+                  <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                    <div className="py-1">
+                      {item.subItems.map((subItem) => (
+                        <Link
+                          key={subItem.name}
+                          to={subItem.path}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          {subItem.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
@@ -100,17 +126,35 @@ export const Navbar = () => {
       >
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
           {navItems.map((item) => (
-            <Link
-              key={item.name}
-              to={item.path}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive(item.path)
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-primary'
-              }`}
-            >
-              {item.name}
-            </Link>
+            <div key={item.name}>
+              <Link
+                to={item.path}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive(item.path)
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-primary'
+                }`}
+              >
+                {item.name}
+              </Link>
+              {item.subItems && (
+                <div className="pl-4">
+                  {item.subItems.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      to={subItem.path}
+                      className={`block px-3 py-2 rounded-md text-sm font-medium ${
+                        isActive(subItem.path)
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-gray-600 hover:bg-gray-100 hover:text-primary'
+                      }`}
+                    >
+                      {subItem.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </div>
