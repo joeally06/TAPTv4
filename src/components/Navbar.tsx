@@ -40,6 +40,7 @@ export const Navbar = () => {
     { name: 'Members', path: '/members' },
     { name: 'Contact', path: '/contact' },
     { name: 'Conference Registration', path: '/conference-registration' },
+    { name: 'Hall of Fame Nomination', path: '/hall-of-fame-nomination' },
   ];
 
   const isActive = (path: string) => {
