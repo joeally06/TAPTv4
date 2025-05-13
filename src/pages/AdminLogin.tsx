@@ -59,11 +59,11 @@ export const AdminLogin: React.FC = () => {
       }
 
       // Successful admin login
-      setSuccess('Login successful! Redirecting to admin dashboard...');
+      setSuccess('Login successful! Redirecting to home page...');
       
       // Wait for 1.5 seconds to show the success message before redirecting
       setTimeout(() => {
-        navigate('/admin/conference-registrations');
+        navigate('/');
       }, 1500);
 
     } catch (error: any) {

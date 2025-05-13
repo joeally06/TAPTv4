@@ -1,14 +1,55 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
 
   // Toggle mobile menu
   const toggleMenu = () => setIsOpen(!isOpen);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        
+        setIsAdmin(userData?.role === 'admin');
+      } else {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session?.user.id)
+          .single();
+        
+        setIsAdmin(userData?.role === 'admin');
+      } else if (event === 'SIGNED_OUT') {
+        setIsAdmin(false);
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Handle scroll effect
   useEffect(() => {
@@ -51,16 +92,20 @@ export const Navbar = () => {
       subItems: [
         { name: 'Nomination Form', path: '/hall-of-fame-nomination' }
       ]
-    },
-    {
+    }
+  ];
+
+  // Add admin items conditionally
+  if (isAdmin) {
+    navItems.push({
       name: 'Admin',
       path: '/admin',
       subItems: [
         { name: 'Conference Settings', path: '/admin/conference-settings' },
         { name: 'Conference Registrations', path: '/admin/conference-registrations' }
       ]
-    }
-  ];
+    });
+  }
 
   const isActive = (path: string) => {
     if (path === '/') {
