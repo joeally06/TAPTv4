@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Download, Search, Filter, ChevronDown, ChevronUp, Edit, Trash2, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface ConferenceRegistration {
   id: string;
@@ -15,6 +16,7 @@ interface ConferenceRegistration {
 }
 
 export const AdminConferenceRegistrations: React.FC = () => {
+  const navigate = useNavigate();
   const [registrations, setRegistrations] = useState<ConferenceRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,40 +27,58 @@ export const AdminConferenceRegistrations: React.FC = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
-    fetchRegistrations();
-  }, [sortField, sortDirection]);
+    checkSession();
+  }, []);
+
+  const checkSession = async () => {
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+      
+      if (!session) {
+        navigate('/admin/login');
+        return;
+      }
+
+      // Verify admin role
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userError) throw userError;
+
+      if (!userData || userData.role !== 'admin') {
+        await supabase.auth.signOut();
+        navigate('/admin/login');
+        return;
+      }
+
+      fetchRegistrations();
+    } catch (error: any) {
+      console.error('Session check error:', error);
+      navigate('/admin/login');
+    }
+  };
 
   const fetchRegistrations = async () => {
     try {
-      console.log('Fetching registrations...');
-      
-      // First, verify the user's session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        throw new Error(`Session error: ${sessionError.message}`);
-      }
-
-      if (!session) {
-        throw new Error('No active session found');
-      }
-
-      console.log('Session verified, fetching data...');
+      setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from('conference_registrations')
         .select('*')
         .order(sortField, { ascending: sortDirection === 'asc' });
 
-      if (error) {
-        console.error('Supabase query error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Data received:', data);
+      console.log('Fetched registrations:', data);
       setRegistrations(data || []);
     } catch (error: any) {
-      console.error('Error in fetchRegistrations:', error);
+      console.error('Error fetching registrations:', error);
       setError(error.message);
     } finally {
       setLoading(false);
