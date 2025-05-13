@@ -22,6 +22,10 @@ interface HallOfFameNomination {
   created_at: string;
 }
 
+interface HallOfFameSettings {
+  end_date: string | null;
+}
+
 export const AdminHallOfFameNominations: React.FC = () => {
   const navigate = useNavigate();
   const [nominations, setNominations] = useState<HallOfFameNomination[]>([]);
@@ -33,9 +37,12 @@ export const AdminHallOfFameNominations: React.FC = () => {
   const [selectedNomination, setSelectedNomination] = useState<HallOfFameNomination | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string>('');
+  const [savingEndDate, setSavingEndDate] = useState(false);
 
   useEffect(() => {
     checkAdminStatus();
+    fetchEndDate();
   }, []);
 
   const checkAdminStatus = async () => {
@@ -67,6 +74,57 @@ export const AdminHallOfFameNominations: React.FC = () => {
     } catch (error) {
       console.error('Session check error:', error);
       navigate('/admin/login');
+    }
+  };
+
+  const fetchEndDate = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hall_of_fame_nominations')
+        .select('end_date')
+        .order('end_date', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+
+      if (data?.end_date) {
+        // Convert to local date format for input
+        const date = new Date(data.end_date);
+        setEndDate(date.toISOString().split('T')[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching end date:', error);
+    }
+  };
+
+  const handleEndDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEndDate = e.target.value;
+    setEndDate(newEndDate);
+  };
+
+  const saveEndDate = async () => {
+    if (!endDate) return;
+
+    try {
+      setSavingEndDate(true);
+
+      const { error } = await supabase
+        .from('hall_of_fame_nominations')
+        .update({ 
+          end_date: new Date(endDate).toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', nominations[0]?.id); // Update the most recent nomination
+
+      if (error) throw error;
+
+      alert('End date updated successfully');
+    } catch (error) {
+      console.error('Error saving end date:', error);
+      alert('Failed to update end date');
+    } finally {
+      setSavingEndDate(false);
     }
   };
 
@@ -313,226 +371,255 @@ export const AdminHallOfFameNominations: React.FC = () => {
         </div>
       </section>
 
-      {/* Main Content */}
+      {/* End Date Management */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search nominations..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-            />
+        <div className="bg-white shadow-md rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-bold text-secondary mb-4">Nomination Period</h2>
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                End Date
+              </label>
+              <input
+                type="date"
+                id="endDate"
+                value={endDate}
+                onChange={handleEndDateChange}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            <button
+              onClick={saveEndDate}
+              disabled={savingEndDate || !endDate}
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
+            >
+              {savingEndDate ? 'Saving...' : 'Save End Date'}
+            </button>
           </div>
-          
-          <button
-            onClick={exportToPDF}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-          >
-            <Download className="h-5 w-5 mr-2" />
-            Export to PDF
-          </button>
         </div>
 
-        {/* Nominations Table */}
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
-              <p className="mt-2 text-gray-600">Loading nominations...</p>
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Controls */}
+          <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search nominations..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+              />
             </div>
-          ) : error ? (
-            <div className="p-8 text-center text-red-600">
-              <p>Error loading nominations: {error}</p>
-            </div>
-          ) : filteredNominations.length === 0 ? (
-            <div className="p-8 text-center text-gray-600">
-              <p>No nominations found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {[
-                      { key: 'nominee_last_name', label: 'Nominee' },
-                      { key: 'district', label: 'District' },
-                      { key: 'region', label: 'Region' },
-                      { key: 'years_of_service', label: 'Years of Service' },
-                      { key: 'is_tapt_member', label: 'TAPT Member' },
-                      { key: 'status', label: 'Status' },
-                      { key: 'created_at', label: 'Nomination Date' }
-                    ].map(({ key, label }) => (
-                      <th
-                        key={key}
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
-                        onClick={() => handleSort(key as keyof HallOfFameNomination)}
-                      >
-                        <div className="flex items-center">
-                          {label}
-                          <SortIcon field={key as keyof HallOfFameNomination} />
-                        </div>
+            
+            <button
+              onClick={exportToPDF}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            >
+              <Download className="h-5 w-5 mr-2" />
+              Export to PDF
+            </button>
+          </div>
+
+          {/* Nominations Table */}
+          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            {loading ? (
+              <div className="p-8 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+                <p className="mt-2 text-gray-600">Loading nominations...</p>
+              </div>
+            ) : error ? (
+              <div className="p-8 text-center text-red-600">
+                <p>Error loading nominations: {error}</p>
+              </div>
+            ) : filteredNominations.length === 0 ? (
+              <div className="p-8 text-center text-gray-600">
+                <p>No nominations found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {[
+                        { key: 'nominee_last_name', label: 'Nominee' },
+                        { key: 'district', label: 'District' },
+                        { key: 'region', label: 'Region' },
+                        { key: 'years_of_service', label: 'Years of Service' },
+                        { key: 'is_tapt_member', label: 'TAPT Member' },
+                        { key: 'status', label: 'Status' },
+                        { key: 'created_at', label: 'Nomination Date' }
+                      ].map(({ key, label }) => (
+                        <th
+                          key={key}
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
+                          onClick={() => handleSort(key as keyof HallOfFameNomination)}
+                        >
+                          <div className="flex items-center">
+                            {label}
+                            <SortIcon field={key as keyof HallOfFameNomination} />
+                          </div>
+                        </th>
+                      ))}
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
                       </th>
-                    ))}
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredNominations.map((nomination) => (
-                    <tr key={nomination.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {nomination.nominee_first_name} {nomination.nominee_last_name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {nomination.nominee_city}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {nomination.district}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {nomination.region}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {nomination.years_of_service}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          nomination.is_tapt_member
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {nomination.is_tapt_member ? 'Yes' : 'No'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <select
-                          value={nomination.status}
-                          onChange={(e) => handleStatusChange(nomination.id, e.target.value)}
-                          disabled={updatingStatus === nomination.id}
-                          className={`text-sm rounded-md border-gray-300 focus:border-primary focus:ring-primary ${
-                            updatingStatus === nomination.id ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="approved">Approved</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(nomination.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => {
-                            setSelectedNomination(nomination);
-                            setShowDetailsModal(true);
-                          }}
-                          className="text-primary hover:text-primary/80 mr-3"
-                        >
-                          <Eye className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(nomination.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredNominations.map((nomination) => (
+                      <tr key={nomination.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {nomination.nominee_first_name} {nomination.nominee_last_name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {nomination.nominee_city}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nomination.district}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nomination.region}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nomination.years_of_service}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            nomination.is_tapt_member
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {nomination.is_tapt_member ? 'Yes' : 'No'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={nomination.status}
+                            onChange={(e) => handleStatusChange(nomination.id, e.target.value)}
+                            disabled={updatingStatus === nomination.id}
+                            className={`text-sm rounded-md border-gray-300 focus:border-primary focus:ring-primary ${
+                              updatingStatus === nomination.id ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(nomination.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => {
+                              setSelectedNomination(nomination);
+                              setShowDetailsModal(true);
+                            }}
+                            className="text-primary hover:text-primary/80 mr-3"
+                          >
+                            <Eye className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(nomination.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Details Modal */}
+          {showDetailsModal && selectedNomination && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-2xl w-full p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-xl font-bold text-secondary">Nomination Details</h3>
+                  <button
+                    onClick={() => setShowDetailsModal(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <span className="sr-only">Close</span>
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-500">Nominee</h4>
+                    <p className="mt-1">{selectedNomination.nominee_first_name} {selectedNomination.nominee_last_name}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-500">District</h4>
+                    <p className="mt-1">{selectedNomination.district}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-500">Region</h4>
+                    <p className="mt-1">{selectedNomination.region}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-500">Years of Service</h4>
+                    <p className="mt-1">{selectedNomination.years_of_service}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-500">TAPT Member</h4>
+                    <p className="mt-1">{selectedNomination.is_tapt_member ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-500">Status</h4>
+                    <select
+                      value={selectedNomination.status}
+                      onChange={(e) => handleStatusChange(selectedNomination.id, e.target.value)}
+                      disabled={updatingStatus === selectedNomination.id}
+                      className={`mt-1 block w-full rounded-md border-gray-300 focus:ring-primary focus:border-primary ${
+                        updatingStatus === selectedNomination.id ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h4 className="font-medium text-gray-500">Nomination Reason</h4>
+                  <p className="mt-1 text-gray-700">{selectedNomination.nomination_reason}</p>
+                </div>
+
+                <div className="mt-6">
+                  <h4 className="font-medium text-gray-500">Nominated By</h4>
+                  <div className="mt-2 bg-gray-50 rounded-lg p-4">
+                    <p className="font-medium">{selectedNomination.supervisor_first_name} {selectedNomination.supervisor_last_name}</p>
+                    <p className="text-gray-600">{selectedNomination.supervisor_email}</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowDetailsModal(false)}
+                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
-
-        {/* Details Modal */}
-        {showDetailsModal && selectedNomination && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-bold text-secondary">Nomination Details</h3>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-gray-500">Nominee</h4>
-                  <p className="mt-1">{selectedNomination.nominee_first_name} {selectedNomination.nominee_last_name}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-500">District</h4>
-                  <p className="mt-1">{selectedNomination.district}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-500">Region</h4>
-                  <p className="mt-1">{selectedNomination.region}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-500">Years of Service</h4>
-                  <p className="mt-1">{selectedNomination.years_of_service}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-500">TAPT Member</h4>
-                  <p className="mt-1">{selectedNomination.is_tapt_member ? 'Yes' : 'No'}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-500">Status</h4>
-                  <select
-                    value={selectedNomination.status}
-                    onChange={(e) => handleStatusChange(selectedNomination.id, e.target.value)}
-                    disabled={updatingStatus === selectedNomination.id}
-                    className={`mt-1 block w-full rounded-md border-gray-300 focus:ring-primary focus:border-primary ${
-                      updatingStatus === selectedNomination.id ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <h4 className="font-medium text-gray-500">Nomination Reason</h4>
-                <p className="mt-1 text-gray-700">{selectedNomination.nomination_reason}</p>
-              </div>
-
-              <div className="mt-6">
-                <h4 className="font-medium text-gray-500">Nominated By</h4>
-                <div className="mt-2 bg-gray-50 rounded-lg p-4">
-                  <p className="font-medium">{selectedNomination.supervisor_first_name} {selectedNomination.supervisor_last_name}</p>
-                  <p className="text-gray-600">{selectedNomination.supervisor_email}</p>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
