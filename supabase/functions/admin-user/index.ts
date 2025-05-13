@@ -172,6 +172,15 @@ Deno.serve(async (req) => {
       // Delete user
       const payload: DeleteUserPayload = await req.json();
 
+      // First, verify the user exists in auth
+      const { data: authUser, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(
+        payload.userId
+      );
+
+      if (authUserError || !authUser.user) {
+        throw new Error('User not found in auth system');
+      }
+
       // Check if user exists and is not the last admin
       const { data: userToDelete, error: userCheckError } = await supabaseAdmin
         .from('users')
@@ -199,16 +208,43 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Delete user from auth
+      // Delete any conference registrations associated with the user
+      const { error: regDeleteError } = await supabaseAdmin
+        .from('conference_registrations')
+        .delete()
+        .eq('id', payload.userId);
+
+      if (regDeleteError) {
+        console.error('Error deleting conference registrations:', regDeleteError);
+        // Continue with deletion even if this fails
+      }
+
+      // Delete the user from the users table first
+      const { error: userDeleteError } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', payload.userId);
+
+      if (userDeleteError) {
+        throw new Error(`Failed to delete user from users table: ${userDeleteError.message}`);
+      }
+
+      // Finally, delete user from auth
       const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
         payload.userId
       );
 
       if (deleteAuthError) {
+        // If auth deletion fails, we should try to rollback the users table deletion
+        try {
+          await supabaseAdmin
+            .from('users')
+            .insert([{ id: payload.userId, role: userToDelete?.role || 'user' }]);
+        } catch (rollbackError) {
+          console.error('Failed to rollback user deletion:', rollbackError);
+        }
         throw new Error(`Failed to delete user from auth: ${deleteAuthError.message}`);
       }
-
-      // The users table row will be automatically deleted by the foreign key constraint
 
       return new Response(
         JSON.stringify({ 
