@@ -36,10 +36,15 @@ export const Navbar = () => {
     { name: 'About', path: '/about' },
     { name: 'Resources', path: '/resources' },
     { name: 'News', path: '/news' },
-    { name: 'Events', path: '/events' },
+    { 
+      name: 'Events',
+      path: '/events',
+      subItems: [
+        { name: 'Conference Registration', path: '/conference-registration' }
+      ]
+    },
     { name: 'Members', path: '/members' },
     { name: 'Contact', path: '/contact' },
-    { name: 'Conference Registration', path: '/conference-registration' },
     { 
       name: 'Hall of Fame',
       path: '/hall-of-fame',
