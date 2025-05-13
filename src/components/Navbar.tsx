@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, ChevronDown, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Toggle mobile menu
   const toggleMenu = () => setIsOpen(!isOpen);
@@ -18,6 +20,7 @@ export const Navbar = () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
+        setIsAuthenticated(true);
         const { data: userData } = await supabase
           .from('users')
           .select('role')
@@ -26,6 +29,7 @@ export const Navbar = () => {
         
         setIsAdmin(userData?.role === 'admin');
       } else {
+        setIsAuthenticated(false);
         setIsAdmin(false);
       }
     };
@@ -34,6 +38,7 @@ export const Navbar = () => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
+        setIsAuthenticated(true);
         const { data: userData } = await supabase
           .from('users')
           .select('role')
@@ -42,6 +47,7 @@ export const Navbar = () => {
         
         setIsAdmin(userData?.role === 'admin');
       } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
         setIsAdmin(false);
       }
     });
@@ -71,6 +77,15 @@ export const Navbar = () => {
   useEffect(() => {
     setIsOpen(false);
   }, [location]);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   const navItems = [
     { name: 'Home', path: '/' },
@@ -172,9 +187,27 @@ export const Navbar = () => {
                 )}
               </div>
             ))}
+
+            {isAuthenticated && (
+              <button
+                onClick={handleLogout}
+                className="ml-4 inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90"
+              >
+                <LogOut className="h-4 w-4 mr-1" />
+                Logout
+              </button>
+            )}
           </div>
 
           <div className="md:hidden flex items-center">
+            {isAuthenticated && (
+              <button
+                onClick={handleLogout}
+                className="mr-4 text-gray-700 hover:text-primary"
+              >
+                <LogOut className="h-6 w-6" />
+              </button>
+            )}
             <button
               onClick={toggleMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-primary focus:outline-none"
