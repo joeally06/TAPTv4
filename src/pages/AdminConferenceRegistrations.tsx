@@ -3,6 +3,13 @@ import { supabase } from '../lib/supabase';
 import { Download, Search, Filter, ChevronDown, ChevronUp, Edit, Trash2, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+interface Attendee {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
 interface ConferenceRegistration {
   id: string;
   school_district: string;
@@ -13,6 +20,7 @@ interface ConferenceRegistration {
   total_attendees: number;
   total_amount: number;
   created_at: string;
+  attendees?: Attendee[];
 }
 
 export const AdminConferenceRegistrations: React.FC = () => {
@@ -70,7 +78,10 @@ export const AdminConferenceRegistrations: React.FC = () => {
 
       const { data, error } = await supabase
         .from('conference_registrations')
-        .select('*')
+        .select(`
+          *,
+          attendees:conference_attendees(*)
+        `)
         .order(sortField, { ascending: sortDirection === 'asc' });
 
       if (error) throw error;
@@ -313,7 +324,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
                   <p className="mt-1">{new Date(selectedRegistration.created_at).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-500">Name</h4>
+                  <h4 className="font-medium text-gray-500">Primary Contact</h4>
                   <p className="mt-1">{selectedRegistration.first_name} {selectedRegistration.last_name}</p>
                 </div>
                 <div>
@@ -325,14 +336,39 @@ export const AdminConferenceRegistrations: React.FC = () => {
                   <p className="mt-1">{selectedRegistration.phone}</p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-500">Total Attendees</h4>
-                  <p className="mt-1">{selectedRegistration.total_attendees}</p>
-                </div>
-                <div>
                   <h4 className="font-medium text-gray-500">Total Amount</h4>
                   <p className="mt-1">${selectedRegistration.total_amount.toFixed(2)}</p>
                 </div>
               </div>
+
+              {/* Additional Attendees */}
+              {selectedRegistration.attendees && selectedRegistration.attendees.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-medium text-gray-500 mb-3">Additional Attendees</h4>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedRegistration.attendees.map((attendee, index) => (
+                          <tr key={attendee.id}>
+                            <td className="px-4 py-2 text-sm text-gray-900">
+                              {attendee.first_name} {attendee.last_name}
+                            </td>
+                            <td className="px-4 py-2 text-sm text-gray-900">
+                              {attendee.email}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-6 flex justify-end">
                 <button
