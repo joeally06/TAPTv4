@@ -47,8 +47,9 @@ export const AdminLogin: React.FC = () => {
         throw new Error('Failed to fetch user role');
       }
 
+      // Handle case where user exists in auth but not in public users table
       if (!userData) {
-        throw new Error('User record not found');
+        throw new Error('Your account is not properly set up. Please contact the system administrator.');
       }
 
       if (userData.role !== 'admin') {
@@ -60,6 +61,11 @@ export const AdminLogin: React.FC = () => {
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'An error occurred during login');
+      
+      // Sign out the user if they authenticated but don't have proper access
+      if (error.message.includes('not properly set up') || error.message.includes('Admin privileges required')) {
+        await supabase.auth.signOut();
+      }
     } finally {
       setIsLoading(false);
     }
