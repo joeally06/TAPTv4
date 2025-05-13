@@ -49,9 +49,8 @@ export const AdminLogin: React.FC = () => {
         throw new Error('Failed to fetch user role');
       }
 
-      // Handle case where user exists in auth but not in public users table
       if (!userData) {
-        throw new Error('Admin profile not found. Please contact your system administrator to create your admin profile.');
+        throw new Error('User profile not found. Please contact your system administrator.');
       }
 
       if (userData.role !== 'admin') {
@@ -59,11 +58,11 @@ export const AdminLogin: React.FC = () => {
       }
 
       // Successful admin login
-      setSuccess('Login successful! Redirecting to home page...');
+      setSuccess('Login successful! Redirecting to admin dashboard...');
       
       // Wait for 1.5 seconds to show the success message before redirecting
       setTimeout(() => {
-        navigate('/');
+        navigate('/admin/conference-settings');
       }, 1500);
 
     } catch (error: any) {
@@ -71,7 +70,7 @@ export const AdminLogin: React.FC = () => {
       setError(error.message || 'An error occurred during login');
       
       // Sign out the user if they authenticated but don't have proper access
-      if (error.message.includes('Admin profile not found') || error.message.includes('Admin privileges required')) {
+      if (error.message.includes('User profile not found') || error.message.includes('Admin privileges required')) {
         await supabase.auth.signOut();
       }
     } finally {
