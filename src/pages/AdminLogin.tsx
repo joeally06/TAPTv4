@@ -51,7 +51,7 @@ export const AdminLogin: React.FC = () => {
 
       // Handle case where user exists in auth but not in public users table
       if (!userData) {
-        throw new Error('Your account is not properly set up. Please contact the system administrator.');
+        throw new Error('Admin profile not found. Please contact your system administrator to create your admin profile.');
       }
 
       if (userData.role !== 'admin') {
@@ -71,7 +71,7 @@ export const AdminLogin: React.FC = () => {
       setError(error.message || 'An error occurred during login');
       
       // Sign out the user if they authenticated but don't have proper access
-      if (error.message.includes('not properly set up') || error.message.includes('Admin privileges required')) {
+      if (error.message.includes('Admin profile not found') || error.message.includes('Admin privileges required')) {
         await supabase.auth.signOut();
       }
     } finally {
