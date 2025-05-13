@@ -120,13 +120,8 @@ export const AdminUsers: React.FC = () => {
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create user');
-      }
-
       const result = await response.json();
-      if (!result.success) {
+      if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to create user');
       }
 
@@ -144,6 +139,9 @@ export const AdminUsers: React.FC = () => {
     if (!confirm('Are you sure you want to delete this user?')) return;
 
     try {
+      setError(null);
+      setSuccess(null);
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No active session');
 
@@ -159,16 +157,16 @@ export const AdminUsers: React.FC = () => {
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete user');
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete user');
       }
 
       setSuccess('User deleted successfully');
       fetchUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      setError(error.message || 'Failed to delete user');
+      setError(error.message || 'Failed to delete user. Please try again.');
     }
   };
 

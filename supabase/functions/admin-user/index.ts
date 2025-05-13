@@ -172,13 +172,40 @@ Deno.serve(async (req) => {
       // Delete user
       const payload: DeleteUserPayload = await req.json();
 
+      // Check if user exists and is not the last admin
+      const { data: userToDelete, error: userCheckError } = await supabaseAdmin
+        .from('users')
+        .select('role')
+        .eq('id', payload.userId)
+        .single();
+
+      if (userCheckError) {
+        throw new Error(`Failed to check user status: ${userCheckError.message}`);
+      }
+
+      if (userToDelete?.role === 'admin') {
+        // Count remaining admins
+        const { count, error: countError } = await supabaseAdmin
+          .from('users')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'admin');
+
+        if (countError) {
+          throw new Error(`Failed to count admins: ${countError.message}`);
+        }
+
+        if (count === 1) {
+          throw new Error('Cannot delete the last admin user');
+        }
+      }
+
       // Delete user from auth
       const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
         payload.userId
       );
 
       if (deleteAuthError) {
-        throw deleteAuthError;
+        throw new Error(`Failed to delete user from auth: ${deleteAuthError.message}`);
       }
 
       // The users table row will be automatically deleted by the foreign key constraint
