@@ -20,6 +20,42 @@ export const AdminLogin: React.FC = () => {
     }));
   };
 
+  const createUserProfile = async (userId: string) => {
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert([{ 
+        id: userId,
+        role: 'user'
+      }]);
+
+    if (insertError) {
+      console.error('Error creating user profile:', insertError);
+      throw new Error('Failed to create user profile');
+    }
+  };
+
+  const getUserRole = async (userId: string): Promise<string> => {
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (userError) {
+      console.error('Error fetching user role:', userError);
+      throw new Error('Failed to fetch user role');
+    }
+
+    if (!userData) {
+      // Create user profile if it doesn't exist
+      await createUserProfile(userId);
+      // Fetch the newly created profile
+      return await getUserRole(userId);
+    }
+
+    return userData.role;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -38,37 +74,12 @@ export const AdminLogin: React.FC = () => {
         throw new Error('No user data returned after login');
       }
 
-      // Check if user has admin role
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', authData.user.id)
-        .maybeSingle();
+      // Get or create user profile and check role
+      const userRole = await getUserRole(authData.user.id);
 
-      if (userError) {
-        throw new Error('Failed to fetch user role');
-      }
-
-      // If user profile doesn't exist, create it with default 'user' role
-      if (!userData) {
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([
-            { 
-              id: authData.user.id,
-              role: 'user'
-            }
-          ]);
-
-        if (insertError) {
-          throw new Error('Failed to create user profile');
-        }
-
-        // Since we just created a non-admin user, throw unauthorized error
-        throw new Error('Unauthorized access. Admin privileges required.');
-      }
-
-      if (userData.role !== 'admin') {
+      if (userRole !== 'admin') {
+        // Sign out if not an admin
+        await supabase.auth.signOut();
         throw new Error('Unauthorized access. Admin privileges required.');
       }
 
@@ -85,7 +96,7 @@ export const AdminLogin: React.FC = () => {
       setError(error.message || 'An error occurred during login');
       
       // Sign out the user if they authenticated but don't have proper access
-      if (error.message.includes('Unauthorized access') || error.message.includes('Failed to create user profile')) {
+      if (error.message.includes('Unauthorized access')) {
         await supabase.auth.signOut();
       }
     } finally {
