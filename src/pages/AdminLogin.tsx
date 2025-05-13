@@ -25,32 +25,41 @@ export const AdminLogin: React.FC = () => {
     setError(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
 
-      if (data.user) {
-        // Check if user has admin role
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-
-        if (userError) throw userError;
-
-        if (userData?.role !== 'admin') {
-          throw new Error('Unauthorized access. Admin privileges required.');
-        }
-
-        // Successful admin login
-        navigate('/admin/dashboard');
+      if (!authData.user) {
+        throw new Error('No user data returned after login');
       }
+
+      // Check if user has admin role
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+      if (userError) {
+        throw new Error('Failed to fetch user role');
+      }
+
+      if (!userData) {
+        throw new Error('User record not found');
+      }
+
+      if (userData.role !== 'admin') {
+        throw new Error('Unauthorized access. Admin privileges required.');
+      }
+
+      // Successful admin login
+      navigate('/admin/dashboard');
     } catch (error: any) {
-      setError(error.message);
+      console.error('Login error:', error);
+      setError(error.message || 'An error occurred during login');
     } finally {
       setIsLoading(false);
     }
