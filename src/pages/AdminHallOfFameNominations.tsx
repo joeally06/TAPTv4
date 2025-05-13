@@ -32,6 +32,7 @@ export const AdminHallOfFameNominations: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedNomination, setSelectedNomination] = useState<HallOfFameNomination | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdminStatus();
@@ -105,17 +106,51 @@ export const AdminHallOfFameNominations: React.FC = () => {
 
   const handleStatusChange = async (nominationId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
+      setUpdatingStatus(nominationId);
+
+      // First verify the nomination exists
+      const { data: existingNomination, error: checkError } = await supabase
         .from('hall_of_fame_nominations')
-        .update({ status: newStatus })
+        .select('id, status')
+        .eq('id', nominationId)
+        .single();
+
+      if (checkError) {
+        throw new Error('Failed to verify nomination');
+      }
+
+      if (!existingNomination) {
+        throw new Error('Nomination not found');
+      }
+
+      // Update the status
+      const { error: updateError } = await supabase
+        .from('hall_of_fame_nominations')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', nominationId);
 
-      if (error) throw error;
+      if (updateError) {
+        throw updateError;
+      }
 
-      fetchNominations();
+      // Update local state
+      setNominations(prev => prev.map(nom => 
+        nom.id === nominationId ? { ...nom, status: newStatus } : nom
+      ));
+
+      // If the nomination is currently selected in the modal, update it
+      if (selectedNomination?.id === nominationId) {
+        setSelectedNomination(prev => prev ? { ...prev, status: newStatus } : null);
+      }
+
     } catch (error: any) {
       console.error('Error updating status:', error);
-      alert('Failed to update status. Please try again.');
+      alert(`Failed to update status: ${error.message}`);
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -381,7 +416,10 @@ export const AdminHallOfFameNominations: React.FC = () => {
                         <select
                           value={nomination.status}
                           onChange={(e) => handleStatusChange(nomination.id, e.target.value)}
-                          className="text-sm rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                          disabled={updatingStatus === nomination.id}
+                          className={`text-sm rounded-md border-gray-300 focus:border-primary focus:ring-primary ${
+                            updatingStatus === nomination.id ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
                         >
                           <option value="pending">Pending</option>
                           <option value="approved">Approved</option>
@@ -456,7 +494,18 @@ export const AdminHallOfFameNominations: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-500">Status</h4>
-                  <p className="mt-1">{selectedNomination.status}</p>
+                  <select
+                    value={selectedNomination.status}
+                    onChange={(e) => handleStatusChange(selectedNomination.id, e.target.value)}
+                    disabled={updatingStatus === selectedNomination.id}
+                    className={`mt-1 block w-full rounded-md border-gray-300 focus:ring-primary focus:border-primary ${
+                      updatingStatus === selectedNomination.id ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
                 </div>
               </div>
 
