@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase, verifyUserRole } from '../lib/supabase';
+import { supabase, verifyUserRole, testSupabaseConnection } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
 
@@ -19,31 +19,42 @@ export const AdminLogin: React.FC = () => {
       [e.target.name]: e.target.value
     }));
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
     setSuccess(null);
 
-    try {
+    try {      // Step 1: Test connection first
+      const { success: connectionSuccess, error: connectionError } = await testSupabaseConnection();
+      
+      if (!connectionSuccess) {
+        throw new Error(connectionError?.message || 'Unable to connect to the server. Please check your internet connection and try again.');
+      }
+
+      // Step 2: Authentication
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        if (authError.message.includes('Failed to fetch')) {
+          throw new Error('Network connection error. Please check your internet connection and try again.');
+        }
+        throw authError;
+      }
 
       if (!authData.user) {
         throw new Error('No user data returned after login');
       }
 
+      // Step 3: Role verification
       console.log('User authenticated, verifying role...');
-
-      // Verify user role with retries
       const userRole = await verifyUserRole(authData.user.id);
 
       if (!userRole) {
+        await supabase.auth.signOut();
         throw new Error('Unable to verify user role. Please try again.');
       }
 
@@ -52,18 +63,27 @@ export const AdminLogin: React.FC = () => {
         throw new Error('Unauthorized access. Admin privileges required.');
       }
 
+      // Step 4: Success handling
       setSuccess('Login successful! Redirecting to admin dashboard...');
       
-      setTimeout(() => {
-        navigate('/admin/conference-settings');
-      }, 1500);
+      // Use Promise to handle navigation after state updates
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      navigate('/admin/conference-settings');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      setError(error.message || 'An error occurred during login');
       
-      if (error.message.includes('Unauthorized access')) {
-        await supabase.auth.signOut();
+      // Type guard for Error objects
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setError(errorMessage);
+      
+      // Handle unauthorized access
+      if (errorMessage.includes('Unauthorized access') || errorMessage.includes('Unable to verify user role')) {
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          console.error('Sign out failed:', signOutError);
+        }
       }
     } finally {
       setIsLoading(false);
