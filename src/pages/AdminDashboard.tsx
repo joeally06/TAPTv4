@@ -60,39 +60,44 @@ export const AdminDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      console.log('Fetching dashboard stats...');
+      // Verify admin status first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('Authentication required');
+      }
 
-      // Fetch conference registrations count
-      const { data: registrationsData, error: regError } = await supabase
+      // Get registration stats
+      const { data: regData, count: registrationsCount, error: regError } = await supabase
         .from('conference_registrations')
-        .select('id', { count: 'exact' });
+        .select('*', { count: 'exact' })
+        .throwOnError();
 
       if (regError) {
         console.error('Error fetching registrations:', regError);
         throw regError;
       }
 
-      console.log('Registrations data:', registrationsData);
+      console.log('Raw registration data:', regData);
+      console.log('Registrations count:', registrationsCount);
 
-      // Fetch hall of fame nominations count
-      const { data: nominationsData, error: nomError } = await supabase
+      // Get nomination stats
+      const { count: nominationsCount, error: nomError } = await supabase
         .from('hall_of_fame_nominations')
-        .select('id', { count: 'exact' });
+        .select('*', { count: 'exact', head: true })
+        .throwOnError();
 
       if (nomError) {
         console.error('Error fetching nominations:', nomError);
         throw nomError;
       }
 
-      console.log('Nominations data:', nominationsData);
-
       setStats({
-        registrations: registrationsData?.length || 0,
-        nominations: nominationsData?.length || 0
+        registrations: registrationsCount || 0,
+        nominations: nominationsCount || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
-      setError('Failed to load dashboard statistics');
+      setError('Failed to load dashboard statistics. Please verify your admin privileges.');
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Mail, Lock, Shield, Plus, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, User, Mail, Lock, Shield, Plus, Trash2 } from 'lucide-react';
 
 interface UserData {
   id: string;
