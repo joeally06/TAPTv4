@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Mail, Phone, MapPin, DollarSign, Building, User, Users } from 'lucide-react';
 
-export const ConferenceRegistration: React.FC = () => {
+const ConferenceRegistration: React.FC = () => {
   const [formData, setFormData] = useState({
     schoolDistrict: '',
     firstName: '',
@@ -525,4 +525,4 @@ export const ConferenceRegistration: React.FC = () => {
   );
 };
 
-export { ConferenceRegistration }
+export default ConferenceRegistration;

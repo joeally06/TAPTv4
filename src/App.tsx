@@ -6,7 +6,7 @@ import { Contact } from './pages/Contact';
 import { News } from './pages/News';
 import { Events } from './pages/Events';
 import { Members } from './pages/Members';
-import { ConferenceRegistration } from './pages/ConferenceRegistration';
+import ConferenceRegistration from './pages/ConferenceRegistration';
 import { HallOfFameNomination } from './pages/HallOfFameNomination';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
