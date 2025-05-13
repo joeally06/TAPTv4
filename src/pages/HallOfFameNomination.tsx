@@ -30,6 +30,10 @@ export const HallOfFameNomination: React.FC = () => {
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
+    } else if (name === 'supervisorPhone') {
+      // Only allow numbers and limit to 10 digits
+      const numbersOnly = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, [name]: numbersOnly }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -377,9 +381,14 @@ export const HallOfFameNomination: React.FC = () => {
                       value={formData.supervisorPhone}
                       onChange={handleChange}
                       required
+                      pattern="[0-9]{10}"
+                      maxLength={10}
+                      placeholder="1234567890"
+                      title="Please enter a valid 10-digit phone number"
                       className="pl-10 block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
                     />
                   </div>
+                  <p className="mt-1 text-sm text-gray-500">Enter 10 digits without spaces or special characters</p>
                 </div>
               </div>
             </div>
