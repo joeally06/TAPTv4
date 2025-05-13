@@ -68,17 +68,14 @@ Deno.serve(async (req) => {
       // Create new user
       const payload: CreateUserPayload = await req.json();
 
-      // Check if user already exists in auth
-      const { data: existingUsers } = await supabaseAdmin
-        .from('auth.users')
-        .select('id')
-        .eq('email', payload.email)
-        .limit(1);
+      // Check if user already exists by email
+      const { data: { user: existingUser }, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(payload.email);
 
-      if (existingUsers && existingUsers.length > 0) {
+      if (existingUser) {
         throw new Error('A user with this email already exists');
       }
 
+      // Create new user in auth
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: payload.email,
         password: payload.password,
@@ -89,27 +86,20 @@ Deno.serve(async (req) => {
         throw createError || new Error('Failed to create user');
       }
 
-      // Check if user already exists in users table
-      const { data: existingUser } = await supabaseAdmin
+      // Insert into users table
+      const { error: roleError } = await supabaseAdmin
         .from('users')
-        .select('id')
-        .eq('id', newUser.user.id)
-        .single();
+        .upsert([{
+          id: newUser.user.id,
+          role: payload.role,
+        }], {
+          onConflict: 'id'
+        });
 
-      if (!existingUser) {
-        // Only insert if user doesn't exist
-        const { error: roleError } = await supabaseAdmin
-          .from('users')
-          .insert([{
-            id: newUser.user.id,
-            role: payload.role,
-          }]);
-
-        if (roleError) {
-          // Cleanup: delete the auth user if role assignment fails
-          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-          throw roleError;
-        }
+      if (roleError) {
+        // Cleanup: delete the auth user if role assignment fails
+        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+        throw roleError;
       }
 
       return new Response(
