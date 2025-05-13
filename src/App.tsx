@@ -12,6 +12,7 @@ import { AdminUsers } from './pages/AdminUsers';
 import ConferenceRegistration from './pages/ConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
 import { AdminConferenceSettings } from './pages/AdminConferenceSettings';
+import { AdminHallOfFameNominations } from './pages/AdminHallOfFameNominations';
 import { HallOfFameNomination } from './pages/HallOfFameNomination';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -63,6 +64,7 @@ function App() {
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
               <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
+              <Route path="/admin/hall-of-fame-nominations" element={<AdminHallOfFameNominations />} />
               <Route path="/admin/test" element={<AdminTestComponent />} />
               <Route path="/admin/debug" element={<UserDebugComponent />} />
             </Routes>
