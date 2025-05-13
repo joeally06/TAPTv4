@@ -19,15 +19,16 @@ export const AdminLogin: React.FC = () => {
       [e.target.name]: e.target.value
     }));
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
     setSuccess(null);
 
-    try {      // Step 1: Test connection first
+    try {
+      // Step 1: Test connection first
       const { success: connectionSuccess, error: connectionError } = await testSupabaseConnection();
-      
       if (!connectionSuccess) {
         throw new Error(connectionError?.message || 'Unable to connect to the server. Please check your internet connection and try again.');
       }
@@ -50,12 +51,13 @@ export const AdminLogin: React.FC = () => {
       }
 
       // Step 3: Role verification
-      console.log('User authenticated, verifying role...');
+      console.log('User authenticated, verifying role for user:', authData.user.id);
       const userRole = await verifyUserRole(authData.user.id);
+      console.log('Received user role:', userRole);
 
       if (!userRole) {
         await supabase.auth.signOut();
-        throw new Error('Unable to verify user role. Please try again.');
+        throw new Error('User role not found. Please contact administrator.');
       }
 
       if (userRole !== 'admin') {
@@ -65,25 +67,18 @@ export const AdminLogin: React.FC = () => {
 
       // Step 4: Success handling
       setSuccess('Login successful! Redirecting to admin dashboard...');
-      
-      // Use Promise to handle navigation after state updates
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate('/admin/conference-settings');
 
     } catch (error: unknown) {
       console.error('Login error:', error);
-      
-      // Type guard for Error objects
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setError(errorMessage);
       
-      // Handle unauthorized access
-      if (errorMessage.includes('Unauthorized access') || errorMessage.includes('Unable to verify user role')) {
-        try {
-          await supabase.auth.signOut();
-        } catch (signOutError) {
-          console.error('Sign out failed:', signOutError);
-        }
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error('Sign out failed:', signOutError);
       }
     } finally {
       setIsLoading(false);
