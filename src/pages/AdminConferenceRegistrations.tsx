@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Download, Search, Filter, ChevronDown, ChevronUp, Edit, Trash2, Eye } from 'lucide-react';
+import { Download, Search, Filter, ChevronDown, ChevronUp, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Attendee {
@@ -228,7 +228,16 @@ export const AdminConferenceRegistrations: React.FC = () => {
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h1 className="text-3xl font-bold">Conference Registrations</h1>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => navigate('/admin')}
+              className="inline-flex items-center text-white hover:text-gray-200 transition-colors"
+            >
+              <ArrowLeft className="h-6 w-6 mr-2" />
+              Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold">Conference Registrations</h1>
+          </div>
           <p className="mt-2">Manage and track conference registrations</p>
         </div>
       </section>
