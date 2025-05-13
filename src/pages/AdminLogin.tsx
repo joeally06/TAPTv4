@@ -20,40 +20,45 @@ export const AdminLogin: React.FC = () => {
     }));
   };
 
-  const createUserProfile = async (userId: string) => {
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert([{ 
-        id: userId,
-        role: 'user'
-      }]);
+  const getUserRole = async (userId: string): Promise<string | null> => {
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
 
-    if (insertError) {
-      console.error('Error creating user profile:', insertError);
-      throw new Error('Failed to create user profile');
+      if (userError) {
+        if (userError.code === 'PGRST116') {
+          // No user profile found
+          return null;
+        }
+        throw userError;
+      }
+
+      return userData?.role || null;
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return null;
     }
   };
 
-  const getUserRole = async (userId: string): Promise<string> => {
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .maybeSingle();
+  const createUserProfile = async (userId: string) => {
+    try {
+      // Use RPC to create user profile to bypass RLS
+      const { error: rpcError } = await supabase
+        .rpc('create_user_profile', {
+          user_id: userId,
+          user_role: 'user'
+        });
 
-    if (userError) {
-      console.error('Error fetching user role:', userError);
-      throw new Error('Failed to fetch user role');
+      if (rpcError) {
+        throw rpcError;
+      }
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+      throw new Error('Failed to create user profile');
     }
-
-    if (!userData) {
-      // Create user profile if it doesn't exist
-      await createUserProfile(userId);
-      // Fetch the newly created profile
-      return await getUserRole(userId);
-    }
-
-    return userData.role;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,8 +79,18 @@ export const AdminLogin: React.FC = () => {
         throw new Error('No user data returned after login');
       }
 
-      // Get or create user profile and check role
-      const userRole = await getUserRole(authData.user.id);
+      // Get user role
+      let userRole = await getUserRole(authData.user.id);
+
+      // If no user profile exists, create one
+      if (!userRole) {
+        await createUserProfile(authData.user.id);
+        userRole = await getUserRole(authData.user.id);
+        
+        if (!userRole) {
+          throw new Error('Failed to create or retrieve user profile');
+        }
+      }
 
       if (userRole !== 'admin') {
         // Sign out if not an admin
