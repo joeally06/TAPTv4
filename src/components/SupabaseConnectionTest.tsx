@@ -14,6 +14,7 @@ const SupabaseConnectionTest = () => {
   useEffect(() => {
     const testConnection = async () => {
       try {
+        console.log('Starting connection test...');
         const result = await testSupabaseConnection();
         
         if (result.success) {
@@ -31,6 +32,7 @@ const SupabaseConnectionTest = () => {
           });
         }
       } catch (error) {
+        console.error('Error in test component:', error);
         setConnectionStatus({
           tested: true,
           success: false,
@@ -44,7 +46,7 @@ const SupabaseConnectionTest = () => {
   }, []);
 
   return (
-    <div className="p-6 max-w-md mx-auto bg-white rounded-lg shadow-md mt-10">
+    <div className="fixed bottom-16 right-4 p-6 max-w-md bg-white rounded-lg shadow-md z-50">
       <h2 className="text-2xl font-bold text-secondary mb-4">Supabase Connection Test</h2>
       
       {!connectionStatus.tested ? (
