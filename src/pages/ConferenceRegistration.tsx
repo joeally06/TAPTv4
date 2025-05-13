@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Mail, Phone, MapPin, DollarSign, Building, User, Users } from 'lucide-react';
 
+interface Attendee {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 const ConferenceRegistration: React.FC = () => {
   const [formData, setFormData] = useState({
     schoolDistrict: '',
@@ -13,7 +19,8 @@ const ConferenceRegistration: React.FC = () => {
     zipCode: '',
     email: '',
     phone: '',
-    totalAttendees: 1
+    totalAttendees: 1,
+    additionalAttendees: [] as Attendee[]
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,12 +36,49 @@ const ConferenceRegistration: React.FC = () => {
     const { name, value } = e.target;
     
     if (name === 'totalAttendees') {
-      // Ensure totalAttendees is at least 1
       const attendees = Math.max(1, parseInt(value) || 1);
-      setFormData(prev => ({ ...prev, [name]: attendees }));
+      // Update additional attendees array length
+      const currentAttendees = formData.additionalAttendees;
+      if (attendees > 1) {
+        const diff = attendees - 1 - currentAttendees.length;
+        if (diff > 0) {
+          // Add empty attendee slots
+          const newAttendees = [...currentAttendees];
+          for (let i = 0; i < diff; i++) {
+            newAttendees.push({ firstName: '', lastName: '', email: '' });
+          }
+          setFormData(prev => ({
+            ...prev,
+            [name]: attendees,
+            additionalAttendees: newAttendees
+          }));
+        } else if (diff < 0) {
+          // Remove excess attendee slots
+          setFormData(prev => ({
+            ...prev,
+            [name]: attendees,
+            additionalAttendees: currentAttendees.slice(0, attendees - 1)
+          }));
+        }
+      } else {
+        // Reset additional attendees if total is 1
+        setFormData(prev => ({
+          ...prev,
+          [name]: attendees,
+          additionalAttendees: []
+        }));
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleAttendeeChange = (index: number, field: keyof Attendee, value: string) => {
+    setFormData(prev => {
+      const newAttendees = [...prev.additionalAttendees];
+      newAttendees[index] = { ...newAttendees[index], [field]: value };
+      return { ...prev, additionalAttendees: newAttendees };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,8 +87,8 @@ const ConferenceRegistration: React.FC = () => {
     setFormStatus({});
 
     try {
-      // Submit to Supabase
-      const { data, error } = await supabase
+      // First insert the main registration
+      const { data: registrationData, error: registrationError } = await supabase
         .from('conference_registrations')
         .insert([
           {
@@ -60,10 +104,26 @@ const ConferenceRegistration: React.FC = () => {
             total_attendees: formData.totalAttendees,
             total_amount: totalAmount
           }
-        ]);
+        ])
+        .select()
+        .single();
 
-      if (error) {
-        throw error;
+      if (registrationError) throw registrationError;
+
+      // Then insert additional attendees if any
+      if (formData.additionalAttendees.length > 0) {
+        const { error: attendeesError } = await supabase
+          .from('conference_attendees')
+          .insert(
+            formData.additionalAttendees.map(attendee => ({
+              registration_id: registrationData.id,
+              first_name: attendee.firstName,
+              last_name: attendee.lastName,
+              email: attendee.email
+            }))
+          );
+
+        if (attendeesError) throw attendeesError;
       }
 
       setFormStatus({
@@ -82,7 +142,8 @@ const ConferenceRegistration: React.FC = () => {
         zipCode: '',
         email: '',
         phone: '',
-        totalAttendees: 1
+        totalAttendees: 1,
+        additionalAttendees: []
       });
     } catch (error: any) {
       console.error('Error submitting registration:', error);
@@ -490,6 +551,56 @@ const ConferenceRegistration: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Additional Attendees */}
+              {formData.totalAttendees > 1 && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Additional Attendees</h3>
+                  {formData.additionalAttendees.map((attendee, index) => (
+                    <div key={index} className="mb-6 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="text-md font-medium text-gray-700 mb-3">Attendee {index + 2}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={attendee.firstName}
+                            onChange={(e) => handleAttendeeChange(index, 'firstName', e.target.value)}
+                            required
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Last Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={attendee.lastName}
+                            onChange={(e) => handleAttendeeChange(index, 'lastName', e.target.value)}
+                            required
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            value={attendee.email}
+                            onChange={(e) => handleAttendeeChange(index, 'email', e.target.value)}
+                            required
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}
