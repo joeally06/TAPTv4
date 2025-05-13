@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft } from 'lucide-react';
 
 interface ConferenceSettings {
   id: string;
@@ -24,7 +24,7 @@ export const AdminConferenceSettings: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   
   const [settings, setSettings] = useState<ConferenceSettings>({
-    id: crypto.randomUUID(), // Initialize with a valid UUID
+    id: crypto.randomUUID(),
     name: '',
     start_date: '',
     end_date: '',
@@ -84,7 +84,6 @@ export const AdminConferenceSettings: React.FC = () => {
         .maybeSingle();
 
       if (error) {
-        // Only throw if it's not the "no rows returned" error
         if (!error.message.includes('contains 0 rows')) {
           throw error;
         }
@@ -98,7 +97,6 @@ export const AdminConferenceSettings: React.FC = () => {
           registration_end_date: data.registration_end_date.split('T')[0]
         });
       }
-      // If no data is found, the initial state with a new UUID will be used
     } catch (error: any) {
       console.error('Error fetching settings:', error);
       setError('Failed to load conference settings. Please try again later.');
@@ -156,7 +154,16 @@ export const AdminConferenceSettings: React.FC = () => {
     <div className="pt-16">
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h1 className="text-3xl font-bold">Conference Settings</h1>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => navigate('/admin')}
+              className="inline-flex items-center text-white hover:text-gray-200 transition-colors"
+            >
+              <ArrowLeft className="h-6 w-6 mr-2" />
+              Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold">Conference Settings</h1>
+          </div>
           <p className="mt-2">Manage conference details and registration settings</p>
         </div>
       </section>

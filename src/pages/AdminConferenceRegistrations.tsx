@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Download, Search, Filter, ChevronDown, ChevronUp, Edit, Trash2, Eye } from 'lucide-react';
+import { Download, Search, Filter, ChevronDown, ChevronUp, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
 interface Attendee {
   id: string;
@@ -33,6 +34,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedRegistration, setSelectedRegistration] = useState<ConferenceRegistration | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     checkSession();
@@ -43,16 +45,28 @@ export const AdminConferenceRegistrations: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      console.log('Checking Supabase configuration:', {
+        url: import.meta.env.VITE_SUPABASE_URL,
+        hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
+      });
+
       // Step 1: Get session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
+        console.error('Session error:', sessionError);
         throw new Error(`Session error: ${sessionError.message}`);
       }
       
       if (!session) {
+        console.error('No active session found');
         throw new Error('No active session found');
       }
+
+      console.log('Session found:', {
+        userId: session.user.id,
+        email: session.user.email
+      });
 
       // Step 2: Verify admin role
       const { data: userData, error: userError } = await supabase
@@ -62,12 +76,16 @@ export const AdminConferenceRegistrations: React.FC = () => {
         .single();
 
       if (userError) {
+        console.error('Role verification error:', userError);
         throw new Error(`Role verification error: ${userError.message}`);
       }
 
       if (!userData || userData.role !== 'admin') {
+        console.error('User is not an admin:', userData);
         throw new Error('Unauthorized: Admin privileges required');
       }
+
+      console.log('Admin role verified:', userData);
 
       // Step 3: Fetch data only if session and role are valid
       await fetchRegistrations();
@@ -95,6 +113,8 @@ export const AdminConferenceRegistrations: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      console.log('Fetching registrations...');
+
       const { data, error } = await supabase
         .from('conference_registrations')
         .select(`
@@ -104,17 +124,21 @@ export const AdminConferenceRegistrations: React.FC = () => {
         .order(sortField, { ascending: sortDirection === 'asc' });
 
       if (error) {
+        console.error('Error fetching registrations:', error);
         throw new Error(`Failed to fetch registrations: ${error.message}`);
       }
 
+      console.log('Raw registration data:', data);
+
       if (!data) {
+        console.log('No data returned from query');
         setRegistrations([]);
         return;
       }
 
       // Type guard to ensure data matches our interface
       const isValidRegistration = (item: any): item is ConferenceRegistration => {
-        return (
+        const valid = (
           typeof item.id === 'string' &&
           typeof item.school_district === 'string' &&
           typeof item.first_name === 'string' &&
@@ -126,15 +150,31 @@ export const AdminConferenceRegistrations: React.FC = () => {
           typeof item.created_at === 'string' &&
           (!item.attendees || Array.isArray(item.attendees))
         );
+
+        if (!valid) {
+          console.warn('Invalid registration data:', item);
+        }
+
+        return valid;
       };
 
       const validRegistrations = data.filter(isValidRegistration);
       
       if (validRegistrations.length !== data.length) {
-        console.warn('Some registrations had invalid data and were filtered out');
+        console.warn(`Filtered out ${data.length - validRegistrations.length} invalid registrations`);
       }
 
+      console.log('Valid registrations:', validRegistrations);
       setRegistrations(validRegistrations);
+      
+      // Save debug info
+      setDebugInfo({
+        totalRecords: data.length,
+        validRecords: validRegistrations.length,
+        invalidRecords: data.length - validRegistrations.length,
+        timestamp: new Date().toISOString()
+      });
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       console.error('Error fetching registrations:', errorMessage);
@@ -228,10 +268,41 @@ export const AdminConferenceRegistrations: React.FC = () => {
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h1 className="text-3xl font-bold">Conference Registrations</h1>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => navigate('/admin')}
+              className="inline-flex items-center text-white hover:text-gray-200 transition-colors"
+            >
+              <ArrowLeft className="h-6 w-6 mr-2" />
+              Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold">Conference Registrations</h1>
+          </div>
           <p className="mt-2">Manage and track conference registrations</p>
         </div>
       </section>
+
+      {/* Debug Information */}
+      {debugInfo && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">Debug Information</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>Total Records: {debugInfo.totalRecords}</p>
+                  <p>Valid Records: {debugInfo.validRecords}</p>
+                  <p>Invalid Records: {debugInfo.invalidRecords}</p>
+                  <p>Last Updated: {new Date(debugInfo.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supabase Connection Test */}
+      <SupabaseConnectionTest />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
