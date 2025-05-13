@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
 
   try {
     // Verify request method
-    if (req.method !== 'POST' && req.method !== 'DELETE') {
+    if (!['GET', 'POST', 'DELETE'].includes(req.method)) {
       throw new Error('Method not allowed');
     }
 
@@ -64,7 +64,47 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized - Admin access required');
     }
 
-    if (req.method === 'POST') {
+    if (req.method === 'GET') {
+      // Fetch all users
+      const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (listError) {
+        throw listError;
+      }
+
+      // Get roles from users table
+      const { data: rolesData, error: rolesError } = await supabaseAdmin
+        .from('users')
+        .select('id, role');
+
+      if (rolesError) {
+        throw rolesError;
+      }
+
+      // Create a map of user roles
+      const roleMap = new Map(rolesData.map(user => [user.id, user.role]));
+
+      // Combine the data
+      const users = authUsers.users.map(authUser => ({
+        id: authUser.id,
+        email: authUser.email,
+        role: roleMap.get(authUser.id) || 'user',
+        created_at: authUser.created_at
+      }));
+
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          users
+        }),
+        { 
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    } else if (req.method === 'POST') {
       // Create new user
       const payload: CreateUserPayload = await req.json();
 

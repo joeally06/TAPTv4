@@ -62,32 +62,34 @@ export const AdminUsers: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // First get all auth users
-      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
-      if (authError) throw authError;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
 
-      // Then get all user roles from the users table
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('users')
-        .select('id, role');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      if (rolesError) throw rolesError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch users');
+      }
 
-      // Create a map of user roles
-      const roleMap = new Map(rolesData.map(user => [user.id, user.role]));
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch users');
+      }
 
-      // Combine the data
-      const combinedUsers = authData.users.map(authUser => ({
-        id: authUser.id,
-        email: authUser.email || '',
-        role: roleMap.get(authUser.id) || 'user',
-        created_at: authUser.created_at
-      }));
-
-      setUsers(combinedUsers);
-    } catch (error) {
+      setUsers(result.users);
+    } catch (error: any) {
       console.error('Error fetching users:', error);
-      setError('Failed to load users. Please try again.');
+      setError(error.message || 'Failed to load users. Please try again.');
     } finally {
       setLoading(false);
     }
