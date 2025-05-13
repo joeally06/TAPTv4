@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar } from 'lucide-react';
+import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle } from 'lucide-react';
 
 interface Attendee {
   firstName: string;
@@ -45,6 +45,7 @@ const ConferenceRegistration: React.FC = () => {
   const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
 
   useEffect(() => {
     const fetchConferenceSettings = async () => {
@@ -63,6 +64,13 @@ const ConferenceRegistration: React.FC = () => {
         }
 
         setConferenceSettings(data);
+
+        // Check if registration deadline has passed
+        if (data?.registration_end_date) {
+          const endDate = new Date(data.registration_end_date);
+          const now = new Date();
+          setIsRegistrationClosed(now > endDate);
+        }
       } catch (error) {
         console.error('Error:', error);
         setError('An unexpected error occurred. Please try again later.');
@@ -152,6 +160,15 @@ const ConferenceRegistration: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isRegistrationClosed) {
+      setFormStatus({
+        success: false,
+        message: 'Registration is closed. The deadline has passed.'
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setFormStatus({});
 
@@ -239,9 +256,7 @@ const ConferenceRegistration: React.FC = () => {
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
+              <AlertCircle className="h-5 w-5 text-red-400" />
             </div>
             <div className="ml-3">
               <p className="text-sm text-red-700">{error}</p>
@@ -327,46 +342,91 @@ const ConferenceRegistration: React.FC = () => {
                   <p className="text-gray-700">{conferenceSettings.description}</p>
                 </div>
               )}
+
+              {/* Registration Deadline Notice */}
+              {conferenceSettings?.registration_end_date && (
+                <div className={`mt-6 p-4 rounded-md ${
+                  isRegistrationClosed 
+                    ? 'bg-red-50 border border-red-200' 
+                    : 'bg-yellow-50 border border-yellow-200'
+                }`}>
+                  <div className="flex items-start">
+                    <AlertCircle className={`h-5 w-5 ${
+                      isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
+                    }`} />
+                    <div className="ml-3">
+                      <h3 className={`text-sm font-medium ${
+                        isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
+                      }`}>
+                        {isRegistrationClosed 
+                          ? 'Registration is closed'
+                          : 'Registration deadline approaching'
+                        }
+                      </h3>
+                      <p className={`mt-1 text-sm ${
+                        isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
+                      }`}>
+                        {isRegistrationClosed
+                          ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                          : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </section>
 
       {/* Registration Form */}
-      <section className="py-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-secondary mb-4">Registration Form</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Complete the form below to register for the {conferenceSettings?.name || 'TAPT Annual Conference'}. After submission, please mail your payment check to the address provided.
-            </p>
+      {isRegistrationClosed ? (
+        <section className="py-16">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
+              <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-red-800 mb-2">Registration is Closed</h2>
+              <p className="text-red-700">
+                The registration deadline for this conference has passed. Please contact us for any inquiries.
+              </p>
+            </div>
           </div>
+        </section>
+      ) : (
+        <section className="py-16">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-secondary mb-4">Registration Form</h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Complete the form below to register for the {conferenceSettings?.name || 'TAPT Annual Conference'}. After submission, please mail your payment check to the address provided.
+              </p>
+            </div>
 
-          {formStatus.message && (
-            <div className={`mb-8 p-4 rounded-md ${formStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  {formStatus.success ? (
-                    <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
-                <div className="ml-3">
-                  <h3 className={`text-sm font-medium ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
-                    {formStatus.message}
-                  </h3>
+            {formStatus.message && (
+              <div className={`mb-8 p-4 rounded-md ${formStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    {formStatus.success ? (
+                      <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <h3 className={`text-sm font-medium ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
+                      {formStatus.message}
+                    </h3>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          
-          <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-lg p-8">
-            <div className="space-y-8">
+            )}
+            
+            <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-lg p-8">
               {/* School District */}
               <div>
                 <label htmlFor="schoolDistrict" className="block text-sm font-medium text-gray-700 mb-1">
@@ -389,7 +449,7 @@ const ConferenceRegistration: React.FC = () => {
               </div>
 
               {/* Attendee Information */}
-              <div>
+              <div className="mt-8">
                 <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Attendee Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* First Name */}
@@ -437,7 +497,7 @@ const ConferenceRegistration: React.FC = () => {
               </div>
 
               {/* Address */}
-              <div>
+              <div className="mt-8">
                 <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Address</h3>
                 
                 {/* Street Address */}
@@ -565,7 +625,7 @@ const ConferenceRegistration: React.FC = () => {
               </div>
 
               {/* Contact Information */}
-              <div>
+              <div className="mt-8">
                 <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Contact Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Email */}
@@ -613,7 +673,7 @@ const ConferenceRegistration: React.FC = () => {
               </div>
 
               {/* Number of Attendees */}
-              <div>
+              <div className="mt-8">
                 <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Registration Details</h3>
                 <div>
                   <label htmlFor="totalAttendees" className="block text-sm font-medium text-gray-700 mb-1">
@@ -693,41 +753,39 @@ const ConferenceRegistration: React.FC = () => {
                   ))}
                 </div>
               )}
-            </div>
 
-            {/* Submit Button */}
-            <div className="mt-8">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <DollarSign className="mr-2 h-5 w-5" />
-                    Submit Registration
-                  </>
-                )}
-              </button>
-              <p className="mt-3 text-sm text-gray-500 text-center">
-                * Required Fields
-              </p>
-            </div>
-          </form>
-        </div>
-      </section>
+              {/* Submit Button */}
+              <div className="mt-8">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <DollarSign className="mr-2 h-5 w-5" />
+                      Submit Registration
+                    </>
+                  )}
+                </button>
+                <p className="mt-3 text-sm text-gray-500 text-center">
+                  * Required Fields
+                </p>
+              </div>
+            </form>
+          </div>
+        </section>
+      )}
     </div>
   );
 };
 
 export default ConferenceRegistration;
-
-export default ConferenceRegistration
