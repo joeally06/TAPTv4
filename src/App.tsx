@@ -6,6 +6,7 @@ import { Contact } from './pages/Contact';
 import { News } from './pages/News';
 import { Events } from './pages/Events';
 import { Members } from './pages/Members';
+import { ConferenceRegistration } from './pages/ConferenceRegistration';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import SupabaseConnectionTest from './components/SupabaseConnectionTest';
@@ -57,6 +58,7 @@ function App() {
             <Route path="/events" element={<Events />} />
             <Route path="/members" element={<Members />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/conference-registration" element={<ConferenceRegistration />} />
           </Routes>
         </main>
         <Footer />

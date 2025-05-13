@@ -39,6 +39,7 @@ export const Navbar = () => {
     { name: 'Events', path: '/events' },
     { name: 'Members', path: '/members' },
     { name: 'Contact', path: '/contact' },
+    { name: 'Conference Registration', path: '/conference-registration' },
   ];
 
   const isActive = (path: string) => {
