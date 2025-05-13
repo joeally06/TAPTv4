@@ -1,11 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Phone, MapPin, DollarSign, Building, User, Users } from 'lucide-react';
+import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar } from 'lucide-react';
 
 interface Attendee {
   firstName: string;
   lastName: string;
   email: string;
+}
+
+interface ConferenceSettings {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  registration_end_date: string;
+  location: string;
+  venue: string;
+  fee: number;
+  payment_instructions: string;
+  description: string;
 }
 
 const ConferenceRegistration: React.FC = () => {
@@ -29,7 +42,63 @@ const ConferenceRegistration: React.FC = () => {
     message?: string;
   }>({});
 
-  const registrationFee = 175.00;
+  const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchConferenceSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('conference_settings')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) {
+          console.error('Error fetching conference settings:', error);
+          setError('Failed to load conference settings. Please try again later.');
+          return;
+        }
+
+        setConferenceSettings(data);
+      } catch (error) {
+        console.error('Error:', error);
+        setError('An unexpected error occurred. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('conference_settings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conference_settings'
+        },
+        (payload) => {
+          console.log('Conference settings changed:', payload);
+          // Refresh settings when changes occur
+          fetchConferenceSettings();
+        }
+      )
+      .subscribe();
+
+    // Initial fetch
+    fetchConferenceSettings();
+
+    // Cleanup subscription
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const registrationFee = conferenceSettings?.fee ?? 175.00;
   const totalAmount = formData.totalAttendees * registrationFee;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -156,6 +225,33 @@ const ConferenceRegistration: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="bg-red-50 border-l-4 border-red-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-16">
       {/* Hero Section */}
@@ -163,7 +259,7 @@ const ConferenceRegistration: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
           <div className="max-w-3xl">
             <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Conference Registration</h1>
-            <p className="text-xl text-gray-200 mb-8 fade-in">Register for the TAPT Annual Conference and join transportation professionals from across Tennessee.</p>
+            <p className="text-xl text-gray-200 mb-8 fade-in">Register for the {conferenceSettings?.name || 'TAPT Annual Conference'} and join transportation professionals from across Tennessee.</p>
           </div>
         </div>
       </section>
@@ -173,7 +269,7 @@ const ConferenceRegistration: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             <div className="p-8 md:p-10">
-              <h2 className="text-3xl font-bold text-secondary mb-6">TAPT Annual Conference</h2>
+              <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Annual Conference'}</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
@@ -181,26 +277,21 @@ const ConferenceRegistration: React.FC = () => {
                   <ul className="space-y-4">
                     <li className="flex items-start">
                       <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+                        <Calendar className="h-6 w-6" />
                       </span>
                       <div>
                         <span className="font-medium">Date:</span>
-                        <p>June 15-17, 2024</p>
+                        <p>{new Date(conferenceSettings?.start_date || '').toLocaleDateString()} - {new Date(conferenceSettings?.end_date || '').toLocaleDateString()}</p>
                       </div>
                     </li>
                     <li className="flex items-start">
                       <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                        <MapPin className="h-6 w-6" />
                       </span>
                       <div>
                         <span className="font-medium">Location:</span>
-                        <p>Knoxville Convention Center</p>
-                        <p>701 Henley St, Knoxville, TN 37902</p>
+                        <p>{conferenceSettings?.venue}</p>
+                        <p>{conferenceSettings?.location}</p>
                       </div>
                     </li>
                   </ul>
@@ -211,30 +302,31 @@ const ConferenceRegistration: React.FC = () => {
                   <ul className="space-y-4">
                     <li className="flex items-start">
                       <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <DollarSign className="h-6 w-6" />
                       </span>
                       <div>
                         <span className="font-medium">Registration Fee:</span>
-                        <p>$175.00 per attendee</p>
+                        <p>${registrationFee.toFixed(2)} per attendee</p>
                       </div>
                     </li>
                     <li className="flex items-start">
                       <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
+                        <Mail className="h-6 w-6" />
                       </span>
                       <div>
                         <span className="font-medium">Payment Instructions:</span>
-                        <p>Please mail the completed form and payment check to:</p>
-                        <p className="font-medium">TAPT P.O. BOX 68<br />MCMINNVILLE, TN 37111</p>
+                        <p>{conferenceSettings?.payment_instructions}</p>
                       </div>
                     </li>
                   </ul>
                 </div>
               </div>
+
+              {conferenceSettings?.description && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-md">
+                  <p className="text-gray-700">{conferenceSettings.description}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -246,7 +338,7 @@ const ConferenceRegistration: React.FC = () => {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-secondary mb-4">Registration Form</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Complete the form below to register for the TAPT Annual Conference. After submission, please mail your payment check to the address provided.
+              Complete the form below to register for the {conferenceSettings?.name || 'TAPT Annual Conference'}. After submission, please mail your payment check to the address provided.
             </p>
           </div>
 
@@ -637,3 +729,5 @@ const ConferenceRegistration: React.FC = () => {
 };
 
 export default ConferenceRegistration;
+
+export default ConferenceRegistration
