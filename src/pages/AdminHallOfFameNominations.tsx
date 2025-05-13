@@ -139,36 +139,37 @@ export const AdminHallOfFameNominations: React.FC = () => {
 
   const exportToPDF = () => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 14;
+    const maxLineWidth = pageWidth - 2 * margin;
     
     // Add title
     doc.setFontSize(18);
-    doc.text('Hall of Fame Nominations', 14, 20);
+    doc.text('Hall of Fame Nominations', margin, 20);
     
     // Add date
     doc.setFontSize(12);
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, margin, 30);
 
-    // Define the columns for the table
+    // Define the columns for the summary table
     const columns = [
       'Nominee',
       'District',
       'Region',
-      'Years of Service',
-      'Status',
-      'Nominated By'
+      'Years',
+      'Status'
     ];
 
-    // Prepare the data
+    // Prepare the summary data
     const data = filteredNominations.map(nomination => [
       `${nomination.nominee_first_name} ${nomination.nominee_last_name}`,
       nomination.district,
       nomination.region,
       nomination.years_of_service.toString(),
-      nomination.status,
-      `${nomination.supervisor_first_name} ${nomination.supervisor_last_name}`
+      nomination.status
     ]);
 
-    // Add the table
+    // Add the summary table
     (doc as any).autoTable({
       head: [columns],
       body: data,
@@ -185,6 +186,57 @@ export const AdminHallOfFameNominations: React.FC = () => {
       alternateRowStyles: {
         fillColor: [245, 245, 247]
       }
+    });
+
+    // Add detailed nominations with reasons
+    let yPos = (doc as any).lastAutoTable.finalY + 20;
+
+    doc.setFontSize(14);
+    doc.text('Detailed Nominations', margin, yPos);
+    yPos += 10;
+
+    filteredNominations.forEach((nomination, index) => {
+      // Check if we need a new page
+      if (yPos > doc.internal.pageSize.height - 40) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      // Add nomination details
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(`${index + 1}. ${nomination.nominee_first_name} ${nomination.nominee_last_name}`, margin, yPos);
+      yPos += 7;
+
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`District: ${nomination.district}`, margin, yPos);
+      yPos += 5;
+      doc.text(`Region: ${nomination.region}`, margin, yPos);
+      yPos += 5;
+      doc.text(`Years of Service: ${nomination.years_of_service}`, margin, yPos);
+      yPos += 5;
+      doc.text(`Status: ${nomination.status}`, margin, yPos);
+      yPos += 5;
+      doc.text(`TAPT Member: ${nomination.is_tapt_member ? 'Yes' : 'No'}`, margin, yPos);
+      yPos += 7;
+
+      // Add nomination reason with word wrap
+      doc.setFont(undefined, 'bold');
+      doc.text('Nomination Reason:', margin, yPos);
+      yPos += 7;
+      doc.setFont(undefined, 'normal');
+
+      const splitReason = doc.splitTextToSize(nomination.nomination_reason, maxLineWidth);
+      doc.text(splitReason, margin, yPos);
+      yPos += splitReason.length * 5 + 10;
+
+      // Add nominator info
+      doc.setFont(undefined, 'italic');
+      doc.text(`Nominated by: ${nomination.supervisor_first_name} ${nomination.supervisor_last_name}`, margin, yPos);
+      yPos += 5;
+      doc.text(`Email: ${nomination.supervisor_email}`, margin, yPos);
+      yPos += 15;
     });
 
     // Save the PDF
