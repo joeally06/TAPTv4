@@ -100,9 +100,13 @@ export const AdminUsers: React.FC = () => {
         }
       );
 
-      const result = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create user');
+      }
 
-      if (!response.ok || !result.success) {
+      const result = await response.json();
+      if (!result.success) {
         throw new Error(result.error || 'Failed to create user');
       }
 
@@ -120,8 +124,25 @@ export const AdminUsers: React.FC = () => {
     if (!confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete user');
+      }
 
       setSuccess('User deleted successfully');
       fetchUsers();
