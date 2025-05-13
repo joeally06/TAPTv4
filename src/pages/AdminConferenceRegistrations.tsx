@@ -30,16 +30,35 @@ export const AdminConferenceRegistrations: React.FC = () => {
 
   const fetchRegistrations = async () => {
     try {
+      console.log('Fetching registrations...');
+      
+      // First, verify the user's session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        throw new Error(`Session error: ${sessionError.message}`);
+      }
+
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      console.log('Session verified, fetching data...');
+
       const { data, error } = await supabase
         .from('conference_registrations')
         .select('*')
         .order(sortField, { ascending: sortDirection === 'asc' });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase query error:', error);
+        throw error;
+      }
 
+      console.log('Data received:', data);
       setRegistrations(data || []);
     } catch (error: any) {
-      console.error('Error fetching registrations:', error);
+      console.error('Error in fetchRegistrations:', error);
       setError(error.message);
     } finally {
       setLoading(false);
