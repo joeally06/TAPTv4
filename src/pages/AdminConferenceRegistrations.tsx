@@ -122,29 +122,37 @@ export const AdminConferenceRegistrations: React.FC = () => {
   const exportToCSV = () => {
     const headers = [
       'School District',
-      'First Name',
-      'Last Name',
-      'Email',
-      'Phone',
+      'Primary Contact First Name',
+      'Primary Contact Last Name',
+      'Primary Contact Email',
+      'Primary Contact Phone',
       'Total Attendees',
       'Total Amount',
-      'Registration Date'
+      'Registration Date',
+      'Additional Attendees'
     ];
 
-    const csvData = filteredRegistrations.map(reg => [
-      reg.school_district,
-      reg.first_name,
-      reg.last_name,
-      reg.email,
-      reg.phone,
-      reg.total_attendees,
-      reg.total_amount,
-      new Date(reg.created_at).toLocaleDateString()
-    ]);
+    const csvData = filteredRegistrations.map(reg => {
+      const additionalAttendees = reg.attendees 
+        ? reg.attendees.map(a => `${a.first_name} ${a.last_name} (${a.email})`).join('; ')
+        : '';
+
+      return [
+        reg.school_district,
+        reg.first_name,
+        reg.last_name,
+        reg.email,
+        reg.phone,
+        reg.total_attendees,
+        reg.total_amount,
+        new Date(reg.created_at).toLocaleDateString(),
+        additionalAttendees
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
-      ...csvData.map(row => row.join(','))
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
