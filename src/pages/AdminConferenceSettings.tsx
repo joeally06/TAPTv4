@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
 interface ConferenceSettings {
   id: string;
@@ -22,6 +23,7 @@ export const AdminConferenceSettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   
   const [settings, setSettings] = useState<ConferenceSettings>({
     id: crypto.randomUUID(),
@@ -42,33 +44,50 @@ export const AdminConferenceSettings: React.FC = () => {
 
   const checkSession = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      console.log('Checking session...');
+
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
+      }
       
       if (!session) {
+        console.log('No active session');
         navigate('/admin/login');
         return;
       }
 
+      console.log('Session found, checking user role...');
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error('User role check error:', userError);
+        throw userError;
+      }
 
       if (!userData || userData.role !== 'admin') {
+        console.log('User is not admin:', userData);
         await supabase.auth.signOut();
         navigate('/admin/login');
         return;
       }
 
-      fetchSettings();
+      console.log('Admin role verified, fetching settings...');
+      await fetchSettings();
     } catch (error: any) {
       console.error('Session check error:', error);
+      setError(error.message);
       navigate('/admin/login');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -77,6 +96,7 @@ export const AdminConferenceSettings: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      console.log('Fetching conference settings...');
       const { data, error } = await supabase
         .from('conference_settings')
         .select('*')
@@ -84,10 +104,15 @@ export const AdminConferenceSettings: React.FC = () => {
         .maybeSingle();
 
       if (error) {
-        if (!error.message.includes('contains 0 rows')) {
-          throw error;
-        }
+        console.error('Error fetching settings:', error);
+        throw error;
       }
+
+      console.log('Settings data:', data);
+      setDebugInfo({
+        timestamp: new Date().toISOString(),
+        data: data
+      });
 
       if (data) {
         setSettings({
@@ -98,8 +123,8 @@ export const AdminConferenceSettings: React.FC = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error fetching settings:', error);
-      setError('Failed to load conference settings. Please try again later.');
+      console.error('Error in fetchSettings:', error);
+      setError(`Failed to load conference settings: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -121,22 +146,26 @@ export const AdminConferenceSettings: React.FC = () => {
     setSuccess(null);
 
     try {
+      console.log('Submitting settings:', settings);
+
       const { error } = await supabase
         .from('conference_settings')
         .upsert({
           ...settings,
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error saving settings:', error);
+        throw error;
+      }
 
+      console.log('Settings saved successfully');
       setSuccess('Conference settings saved successfully!');
-      setTimeout(() => setSuccess(null), 5000);
+      await fetchSettings(); // Refresh the data
     } catch (error: any) {
-      console.error('Error saving settings:', error);
-      setError('Failed to save conference settings. Please try again.');
+      console.error('Error in handleSubmit:', error);
+      setError(`Failed to save conference settings: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -167,6 +196,28 @@ export const AdminConferenceSettings: React.FC = () => {
           <p className="mt-2">Manage conference details and registration settings</p>
         </div>
       </section>
+
+      {/* Debug Information */}
+      {debugInfo && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">Debug Information</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>Last Fetch: {new Date(debugInfo.timestamp).toLocaleString()}</p>
+                  <pre className="mt-2 overflow-auto">
+                    {JSON.stringify(debugInfo.data, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supabase Connection Test */}
+      <SupabaseConnectionTest />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
