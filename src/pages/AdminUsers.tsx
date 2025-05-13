@@ -60,16 +60,34 @@ export const AdminUsers: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
+      setError(null);
 
-      if (error) throw error;
-      setUsers(data || []);
+      // First get all auth users
+      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+      if (authError) throw authError;
+
+      // Then get all user roles from the users table
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('users')
+        .select('id, role');
+
+      if (rolesError) throw rolesError;
+
+      // Create a map of user roles
+      const roleMap = new Map(rolesData.map(user => [user.id, user.role]));
+
+      // Combine the data
+      const combinedUsers = authData.users.map(authUser => ({
+        id: authUser.id,
+        email: authUser.email || '',
+        role: roleMap.get(authUser.id) || 'user',
+        created_at: authUser.created_at
+      }));
+
+      setUsers(combinedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
-      setError('Failed to load users');
+      setError('Failed to load users. Please try again.');
     } finally {
       setLoading(false);
     }
