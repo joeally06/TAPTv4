@@ -8,11 +8,13 @@ import { Events } from './pages/Events';
 import { Members } from './pages/Members';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
+import SupabaseConnectionTest from './components/SupabaseConnectionTest';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import './index.css';
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const [showConnectionTest, setShowConnectionTest] = useState(false);
 
   useEffect(() => {
     // Simulate loading delay
@@ -38,6 +40,15 @@ function App() {
       <div className="flex flex-col min-h-screen bg-gray-50">
         <Navbar />
         <main className="flex-grow">
+          <button 
+            onClick={() => setShowConnectionTest(!showConnectionTest)}
+            className="fixed bottom-4 right-4 bg-primary text-white px-4 py-2 rounded-md shadow-md z-50"
+          >
+            {showConnectionTest ? 'Hide' : 'Test'} Supabase Connection
+          </button>
+          
+          {showConnectionTest && <SupabaseConnectionTest />}
+          
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
