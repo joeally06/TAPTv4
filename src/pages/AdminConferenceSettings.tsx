@@ -81,10 +81,14 @@ export const AdminConferenceSettings: React.FC = () => {
         .from('conference_settings')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        // Only throw if it's not the "no rows returned" error
+        if (!error.message.includes('contains 0 rows')) {
+          throw error;
+        }
+      }
 
       if (data) {
         setSettings({
