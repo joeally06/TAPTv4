@@ -68,7 +68,7 @@ export const AdminLogin: React.FC = () => {
       // Step 4: Success handling
       setSuccess('Login successful! Redirecting to admin dashboard...');
       await new Promise(resolve => setTimeout(resolve, 1500));
-      navigate('/admin/conference-settings');
+      navigate('/admin');
 
     } catch (error: unknown) {
       console.error('Login error:', error);
