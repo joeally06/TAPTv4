@@ -49,8 +49,23 @@ export const AdminLogin: React.FC = () => {
         throw new Error('Failed to fetch user role');
       }
 
+      // If user profile doesn't exist, create it with default 'user' role
       if (!userData) {
-        throw new Error('User profile not found. Please contact your system administrator.');
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert([
+            { 
+              id: authData.user.id,
+              role: 'user'
+            }
+          ]);
+
+        if (insertError) {
+          throw new Error('Failed to create user profile');
+        }
+
+        // Since we just created a non-admin user, throw unauthorized error
+        throw new Error('Unauthorized access. Admin privileges required.');
       }
 
       if (userData.role !== 'admin') {
@@ -70,7 +85,7 @@ export const AdminLogin: React.FC = () => {
       setError(error.message || 'An error occurred during login');
       
       // Sign out the user if they authenticated but don't have proper access
-      if (error.message.includes('User profile not found') || error.message.includes('Admin privileges required')) {
+      if (error.message.includes('Unauthorized access') || error.message.includes('Failed to create user profile')) {
         await supabase.auth.signOut();
       }
     } finally {
