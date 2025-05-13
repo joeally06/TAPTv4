@@ -20,17 +20,23 @@ export const AdminLogin: React.FC = () => {
     }));
   };
 
-  const getUserRole = async (userId: string): Promise<string | null> => {
+  const getUserRole = async (userId: string, retryCount = 0): Promise<string | null> => {
     try {
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.log('Error fetching user role:', userError);
         return null;
+      }
+
+      // If no data and we haven't exceeded retry attempts, retry after delay
+      if (!userData && retryCount < 3) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return getUserRole(userId, retryCount + 1);
       }
 
       return userData?.role || null;
@@ -42,7 +48,7 @@ export const AdminLogin: React.FC = () => {
 
   const createUserProfile = async (userId: string): Promise<boolean> => {
     try {
-      const { error: rpcError } = await supabase
+      const { data, error: rpcError } = await supabase
         .rpc('create_user_profile', {
           user_id: userId,
           user_role: 'user'
@@ -50,6 +56,18 @@ export const AdminLogin: React.FC = () => {
 
       if (rpcError) {
         console.error('RPC Error creating user profile:', rpcError);
+        return false;
+      }
+
+      // Add an additional check to verify the profile was created
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (verifyError || !verifyData) {
+        console.error('Error verifying user profile creation:', verifyError);
         return false;
       }
 
@@ -78,7 +96,7 @@ export const AdminLogin: React.FC = () => {
         throw new Error('No user data returned after login');
       }
 
-      // Get user role
+      // Get user role with retry mechanism
       let userRole = await getUserRole(authData.user.id);
 
       // If no user profile exists, create one
@@ -86,15 +104,15 @@ export const AdminLogin: React.FC = () => {
         const profileCreated = await createUserProfile(authData.user.id);
         
         if (!profileCreated) {
-          throw new Error('Failed to create user profile');
+          throw new Error('Failed to create user profile. Please try again.');
         }
 
-        // Wait a moment for the profile to be created and fetch the role again
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait longer for the profile to be created and fetch the role again
+        await new Promise(resolve => setTimeout(resolve, 3000));
         userRole = await getUserRole(authData.user.id);
         
         if (!userRole) {
-          throw new Error('Failed to retrieve user profile after creation');
+          throw new Error('User profile creation succeeded but role could not be verified. Please try logging in again.');
         }
       }
 
