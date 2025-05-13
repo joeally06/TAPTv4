@@ -24,7 +24,7 @@ export const AdminConferenceSettings: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   
   const [settings, setSettings] = useState<ConferenceSettings>({
-    id: '',
+    id: crypto.randomUUID(), // Initialize with a valid UUID
     name: '',
     start_date: '',
     end_date: '',
@@ -98,6 +98,7 @@ export const AdminConferenceSettings: React.FC = () => {
           registration_end_date: data.registration_end_date.split('T')[0]
         });
       }
+      // If no data is found, the initial state with a new UUID will be used
     } catch (error: any) {
       console.error('Error fetching settings:', error);
       setError('Failed to load conference settings. Please try again later.');
@@ -127,6 +128,8 @@ export const AdminConferenceSettings: React.FC = () => {
         .upsert({
           ...settings,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
         });
 
       if (error) throw error;
