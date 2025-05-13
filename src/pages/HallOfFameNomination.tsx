@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Mail, Phone, Building, Clock, Award } from 'lucide-react';
+import { User, Mail, Phone, Building, Clock, Award, AlertCircle } from 'lucide-react';
 
 export const HallOfFameNomination: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -23,24 +23,78 @@ export const HallOfFameNomination: React.FC = () => {
     success?: boolean;
     message?: string;
   }>({});
+  const [nominationClosed, setNominationClosed] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkNominationStatus();
+  }, []);
+
+  const checkNominationStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hall_of_fame_nominations')
+        .select('start_date, end_date')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error('Error checking nomination status:', error);
+        return;
+      }
+
+      if (data) {
+        const now = new Date();
+        const startDate = data.start_date ? new Date(data.start_date) : null;
+        const endDate = data.end_date ? new Date(data.end_date) : null;
+
+        if (startDate && endDate) {
+          setNominationClosed(now < startDate || now > endDate);
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
     } else if (name === 'supervisorPhone') {
       // Only allow numbers and limit to 10 digits
       const numbersOnly = value.replace(/\D/g, '').slice(0, 10);
-      setFormData(prev => ({ ...prev, [name]: numbersOnly }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: numbersOnly
+      }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (nominationClosed) {
+      setFormStatus({
+        success: false,
+        message: 'Nominations are currently closed.'
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setFormStatus({});
 
@@ -59,7 +113,8 @@ export const HallOfFameNomination: React.FC = () => {
             supervisor_last_name: formData.supervisorLastName,
             supervisor_email: formData.supervisorEmail,
             nominee_city: formData.nomineeCity,
-            region: formData.region
+            region: formData.region,
+            status: 'pending'
           }
         ]);
 
@@ -95,6 +150,41 @@ export const HallOfFameNomination: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (nominationClosed) {
+    return (
+      <div className="pt-16">
+        <section className="bg-secondary text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
+            <div className="max-w-3xl">
+              <h1 className="text-4xl md:text-5xl font-bold mb-6">Hall of Fame Nomination</h1>
+              <p className="text-xl text-gray-200 mb-8">Nominate an outstanding transportation professional for the TAPT Hall of Fame.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
+              <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-red-800 mb-2">Nominations are Currently Closed</h2>
+              <p className="text-red-700">
+                The nomination period for the Hall of Fame is currently closed. Please check back later or contact us for more information.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-16">
