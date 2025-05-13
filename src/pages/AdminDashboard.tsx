@@ -60,22 +60,22 @@ export const AdminDashboard: React.FC = () => {
       setLoading(true);
       
       // Fetch conference registrations count
-      const { count: registrationsCount, error: regError } = await supabase
+      const { data: registrationsData, error: regError } = await supabase
         .from('conference_registrations')
-        .select('*', { count: 'exact', head: true });
+        .select('*');
 
       if (regError) throw regError;
 
       // Fetch hall of fame nominations count
-      const { count: nominationsCount, error: nomError } = await supabase
+      const { data: nominationsData, error: nomError } = await supabase
         .from('hall_of_fame_nominations')
-        .select('*', { count: 'exact', head: true });
+        .select('*');
 
       if (nomError) throw nomError;
 
       setStats({
-        registrations: registrationsCount || 0,
-        nominations: nominationsCount || 0
+        registrations: registrationsData?.length || 0,
+        nominations: nominationsData?.length || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
