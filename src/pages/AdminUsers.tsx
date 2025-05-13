@@ -81,25 +81,30 @@ export const AdminUsers: React.FC = () => {
     setSuccess(null);
 
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: true
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('No user data returned');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            role: formData.role,
+          }),
+        }
+      );
 
-      // Add user role
-      const { error: roleError } = await supabase
-        .from('users')
-        .insert([{
-          id: authData.user.id,
-          role: formData.role
-        }]);
+      const result = await response.json();
 
-      if (roleError) throw roleError;
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create user');
+      }
 
       setSuccess('User created successfully');
       setFormData({ email: '', password: '', role: 'user' });
