@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, verifyUserRole } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
 
@@ -20,36 +20,6 @@ export const AdminLogin: React.FC = () => {
     }));
   };
 
-  const getUserRole = async (userId: string, retryCount = 0): Promise<string | null> => {
-    try {
-      console.log(`Attempting to get user role for ID: ${userId} (Attempt ${retryCount + 1}/5)`);
-
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (userError) {
-        console.error('Error fetching user role:', userError);
-        return null;
-      }
-
-      console.log('User data received:', userData);
-
-      if (!userData && retryCount < 5) {
-        console.log(`No user data found, retrying in ${(retryCount + 1) * 500}ms... (${retryCount + 1}/5)`);
-        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 500));
-        return getUserRole(userId, retryCount + 1);
-      }
-
-      return userData?.role || null;
-    } catch (error) {
-      console.error('Error in getUserRole:', error);
-      return null;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -68,15 +38,10 @@ export const AdminLogin: React.FC = () => {
         throw new Error('No user data returned after login');
       }
 
-      console.log('User authenticated successfully:', authData.user.id);
+      console.log('User authenticated, verifying role...');
 
-      // Initial delay to allow trigger to create user profile
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Get user role with retry mechanism
-      const userRole = await getUserRole(authData.user.id);
-
-      console.log('Retrieved user role:', userRole);
+      // Verify user role with retries
+      const userRole = await verifyUserRole(authData.user.id);
 
       if (!userRole) {
         throw new Error('Unable to verify user role. Please try again.');

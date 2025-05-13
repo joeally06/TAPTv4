@@ -16,33 +16,7 @@ export const supabase = createClient(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true,
-      // Set session timeout to 8 hours
-      storageKey: 'supabase.auth.token',
-      storage: {
-        getItem: (key) => {
-          const item = localStorage.getItem(key);
-          if (!item) return null;
-          
-          const data = JSON.parse(item);
-          const expiresAt = new Date(data.expires_at).getTime();
-          const now = new Date().getTime();
-          
-          // Check if session has expired (8 hours)
-          if (now - data.created_at > 8 * 60 * 60 * 1000 || now > expiresAt) {
-            localStorage.removeItem(key);
-            return null;
-          }
-          
-          return item;
-        },
-        setItem: (key, value) => {
-          const data = JSON.parse(value);
-          data.created_at = new Date().getTime();
-          localStorage.setItem(key, JSON.stringify(data));
-        },
-        removeItem: (key) => localStorage.removeItem(key)
-      }
+      detectSessionInUrl: true
     }
   }
 );
@@ -81,4 +55,47 @@ export const testSupabaseConnection = async () => {
     console.error('Unexpected error:', error);
     return { success: false, error };
   }
+};
+
+// Function to verify user role with retries
+export const verifyUserRole = async (userId: string, maxRetries = 5): Promise<string | null> => {
+  let retryCount = 0;
+  const baseDelay = 1000; // Start with 1 second delay
+
+  while (retryCount < maxRetries) {
+    try {
+      console.log(`Attempting to verify user role (Attempt ${retryCount + 1}/${maxRetries})`);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        throw error;
+      }
+
+      if (data?.role) {
+        console.log('User role verified:', data.role);
+        return data.role;
+      }
+
+      // Exponential backoff
+      const delay = baseDelay * Math.pow(2, retryCount);
+      console.log(`No role found, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      retryCount++;
+    } catch (error) {
+      console.error(`Retry ${retryCount + 1} failed:`, error);
+      retryCount++;
+      
+      if (retryCount === maxRetries) {
+        throw error;
+      }
+    }
+  }
+
+  return null;
 };
