@@ -36,10 +36,10 @@ export const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 lg:py-32 relative z-10">
           <div className="md:max-w-2xl lg:max-w-3xl">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 slide-in-left">
-              Tennessee Association of Pupil Transportation
+              Student Safety is Our Priority
             </h1>
             <p className="text-lg md:text-xl text-gray-100 mb-8 slide-in-left" style={{ animationDelay: '0.1s' }}>
-              Promoting safe, efficient, and effective student transportation across Tennessee since 1977.
+              Education is Our Destination! The Tennessee Association of Pupil Transportation promotes safe transportation for all Tennessee school children through education, training, and advocacy.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 slide-in-left" style={{ animationDelay: '0.2s' }}>
               <Link to="/about" className="bg-white text-primary hover:bg-gray-100 px-6 py-3 rounded-md font-medium inline-flex items-center transition-all">
@@ -209,3 +209,5 @@ export const Home: React.FC = () => {
     </div>
   );
 };
+
+export { Home }
