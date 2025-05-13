@@ -51,6 +51,14 @@ export const Navbar = () => {
       subItems: [
         { name: 'Nomination Form', path: '/hall-of-fame-nomination' }
       ]
+    },
+    {
+      name: 'Admin',
+      path: '/admin',
+      subItems: [
+        { name: 'Conference Settings', path: '/admin/conference-settings' },
+        { name: 'Conference Registrations', path: '/admin/conference-registrations' }
+      ]
     }
   ];
 

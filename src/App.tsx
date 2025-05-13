@@ -9,6 +9,7 @@ import { Members } from './pages/Members';
 import { AdminLogin } from './pages/AdminLogin';
 import ConferenceRegistration from './pages/ConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
+import { AdminConferenceSettings } from './pages/AdminConferenceSettings';
 import { HallOfFameNomination } from './pages/HallOfFameNomination';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -65,6 +66,7 @@ function App() {
             <Route path="/hall-of-fame-nomination" element={<HallOfFameNomination />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
+            <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
           </Routes>
         </main>
         <Footer />
