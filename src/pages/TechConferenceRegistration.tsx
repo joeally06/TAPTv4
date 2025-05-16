@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle, X } from 'lucide-react';
 
 interface Attendee {
   firstName: string;
@@ -46,6 +46,7 @@ const TechConferenceRegistration: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
+  const [showUnavailablePopup, setShowUnavailablePopup] = useState(false);
 
   useEffect(() => {
     fetchConferenceSettings();
@@ -58,11 +59,17 @@ const TechConferenceRegistration: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching tech conference settings:', error);
         setError('Failed to load conference settings. Please try again later.');
+        setShowUnavailablePopup(true);
+        return;
+      }
+
+      if (!data) {
+        setShowUnavailablePopup(true);
         return;
       }
 
@@ -77,6 +84,7 @@ const TechConferenceRegistration: React.FC = () => {
     } catch (error) {
       console.error('Error:', error);
       setError('An unexpected error occurred. Please try again later.');
+      setShowUnavailablePopup(true);
     } finally {
       setLoading(false);
     }
@@ -223,25 +231,39 @@ const TechConferenceRegistration: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
+  return (
+    <div className="pt-16">
+      {/* Unavailable Popup */}
+      {showUnavailablePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
+                <h2 className="text-xl font-bold text-gray-900">Registration Unavailable</h2>
+              </div>
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
+            <p className="text-gray-600 mb-6">
+              Tech Conference registration is not available at this time. Please check back later or contact us for more information.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="pt-16">
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
