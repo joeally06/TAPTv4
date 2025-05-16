@@ -111,26 +111,27 @@ export const AdminBoardMembers: React.FC = () => {
       // Create a unique file name
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `board-members/${fileName}`;
 
-      // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('public')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // Create a FormData object
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('fileName', fileName);
 
-      if (uploadError) throw uploadError;
+      // Use fetch to send the file to the server
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
 
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('public')
-        .getPublicUrl(filePath);
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
 
-      setFormData(prev => ({ ...prev, image: publicUrl }));
+      // Return the relative path to the image
+      const imagePath = fileName;
+      setFormData(prev => ({ ...prev, image: imagePath }));
       setSuccess('Image uploaded successfully!');
-      return publicUrl;
+      return imagePath;
     } catch (error: any) {
       console.error('Error uploading image:', error);
       setError('Failed to upload image. Please try again.');
@@ -146,9 +147,9 @@ export const AdminBoardMembers: React.FC = () => {
     setSuccess(null);
 
     try {
-      let imageUrl = formData.image;
+      let imagePath = formData.image;
       if (selectedFile) {
-        imageUrl = await handleUpload();
+        imagePath = await handleUpload();
       }
 
       const id = editingMember ? editingMember.id : uuidv4();
@@ -157,7 +158,7 @@ export const AdminBoardMembers: React.FC = () => {
         .upsert({
           id,
           ...formData,
-          image: imageUrl,
+          image: imagePath,
           order: formData.order || members.length
         });
 
@@ -189,11 +190,13 @@ export const AdminBoardMembers: React.FC = () => {
       // Get the member to delete their image if it exists
       const memberToDelete = members.find(m => m.id === id);
       if (memberToDelete?.image) {
-        const imagePath = memberToDelete.image.split('/').pop();
-        if (imagePath) {
-          await supabase.storage
-            .from('public')
-            .remove([`board-members/${imagePath}`]);
+        // Delete the image file
+        const response = await fetch(`/api/delete-image/${memberToDelete.image}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          console.error('Failed to delete image file');
         }
       }
 
@@ -486,7 +489,7 @@ export const AdminBoardMembers: React.FC = () => {
                     <div className="flex items-center">
                       {member.image && (
                         <img
-                          src={member.image}
+                          src={`/images/board-members/${member.image}`}
                           alt={member.name}
                           className="h-10 w-10 rounded-full object-cover mr-3"
                         />

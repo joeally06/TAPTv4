@@ -81,7 +81,7 @@ export const BoardMembers: React.FC = () => {
                 <div key={member.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all">
                   {member.image ? (
                     <img 
-                      src={member.image.startsWith('http') ? member.image : `/src/images/board-members/${member.image}`}
+                      src={`/images/board-members/${member.image}`}
                       alt={member.name}
                       className="w-full h-48 object-cover"
                     />
