@@ -23,8 +23,14 @@ export const AdminDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    checkAdminStatus();
-    fetchDashboardStats();
+    const initializeDashboard = async () => {
+      const isAdmin = await checkAdminStatus();
+      if (isAdmin) {
+        await fetchDashboardStats();
+      }
+    };
+
+    initializeDashboard();
   }, []);
 
   const checkAdminStatus = async () => {
@@ -35,7 +41,7 @@ export const AdminDashboard: React.FC = () => {
       
       if (!session) {
         navigate('/admin/login');
-        return;
+        return false;
       }
 
       const { data: userData, error: userError } = await supabase
@@ -49,55 +55,49 @@ export const AdminDashboard: React.FC = () => {
       if (!userData || userData.role !== 'admin') {
         await supabase.auth.signOut();
         navigate('/admin/login');
+        return false;
       }
+
+      return true;
     } catch (error) {
       console.error('Session check error:', error);
       navigate('/admin/login');
+      return false;
     }
   };
 
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Verify admin status first
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('Authentication required');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate('/admin/login');
+        return;
       }
 
       // Get conference registration stats
       const { count: conferenceCount, error: confError } = await supabase
         .from('conference_registrations')
-        .select('*', { count: 'exact', head: true })
-        .throwOnError();
+        .select('*', { count: 'exact', head: true });
 
-      if (confError) {
-        console.error('Error fetching conference registrations:', confError);
-        throw confError;
-      }
+      if (confError) throw confError;
 
       // Get tech conference registration stats
       const { count: techConfCount, error: techConfError } = await supabase
         .from('tech_conference_registrations')
-        .select('*', { count: 'exact', head: true })
-        .throwOnError();
+        .select('*', { count: 'exact', head: true });
 
-      if (techConfError) {
-        console.error('Error fetching tech conference registrations:', techConfError);
-        throw techConfError;
-      }
+      if (techConfError) throw techConfError;
 
       // Get nomination stats
       const { count: nominationsCount, error: nomError } = await supabase
         .from('hall_of_fame_nominations')
-        .select('*', { count: 'exact', head: true })
-        .throwOnError();
+        .select('*', { count: 'exact', head: true });
 
-      if (nomError) {
-        console.error('Error fetching nominations:', nomError);
-        throw nomError;
-      }
+      if (nomError) throw nomError;
 
       setStats({
         conferenceRegistrations: conferenceCount || 0,
@@ -107,6 +107,10 @@ export const AdminDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching stats:', error);
       setError('Failed to load dashboard statistics. Please verify your admin privileges.');
+      
+      if (error instanceof Error && error.message.includes('Authentication')) {
+        navigate('/admin/login');
+      }
     } finally {
       setLoading(false);
     }
