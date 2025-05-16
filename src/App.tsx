@@ -14,6 +14,7 @@ import TechConferenceRegistration from './pages/TechConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
 import { AdminTechConferenceRegistrations } from './pages/AdminTechConferenceRegistrations';
 import { AdminConferenceSettings } from './pages/AdminConferenceSettings';
+import { AdminTechConferenceSettings } from './pages/AdminTechConferenceSettings';
 import { AdminHallOfFameNominations } from './pages/AdminHallOfFameNominations';
 import { HallOfFameNomination } from './pages/HallOfFameNomination';
 import { Navbar } from './components/Navbar';
@@ -68,6 +69,7 @@ function App() {
               <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
               <Route path="/admin/tech-conference-registrations" element={<AdminTechConferenceRegistrations />} />
               <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
+              <Route path="/admin/tech-conference-settings" element={<AdminTechConferenceSettings />} />
               <Route path="/admin/hall-of-fame-nominations" element={<AdminHallOfFameNominations />} />
               <Route path="/admin/test" element={<AdminTestComponent />} />
               <Route path="/admin/debug" element={<UserDebugComponent />} />
