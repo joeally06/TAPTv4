@@ -81,7 +81,8 @@ export const Navbar = () => {
       name: 'Events',
       path: '/events',
       subItems: [
-        { name: 'Conference Registration', path: '/conference-registration' }
+        { name: 'Conference Registration', path: '/conference-registration' },
+        { name: 'Tech Conference Registration', path: '/tech-conference-registration' }
       ]
     },
     { name: 'Members', path: '/members' },
@@ -93,6 +94,15 @@ export const Navbar = () => {
         { name: 'Nomination Form', path: '/hall-of-fame-nomination' }
       ]
     }
+  ];
+
+  const adminItems = [
+    { name: 'Dashboard', path: '/admin' },
+    { name: 'Users', path: '/admin/users' },
+    { name: 'Conference Registrations', path: '/admin/conference-registrations' },
+    { name: 'Tech Conference Registrations', path: '/admin/tech-conference-registrations' },
+    { name: 'Conference Settings', path: '/admin/conference-settings' },
+    { name: 'Hall of Fame Nominations', path: '/admin/hall-of-fame-nominations' }
   ];
 
   const isActive = (path: string) => {
@@ -160,6 +170,35 @@ export const Navbar = () => {
                 )}
               </div>
             ))}
+
+            {/* Admin Menu */}
+            {isAdmin && (
+              <div className="relative group">
+                <button
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${
+                    location.pathname.startsWith('/admin')
+                      ? 'text-primary border-b-2 border-primary'
+                      : 'text-gray-700 hover:text-primary'
+                  }`}
+                >
+                  Admin
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </button>
+                <div className="absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <div className="py-1">
+                    {adminItems.map((item) => (
+                      <Link
+                        key={item.name}
+                        to={item.path}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="md:hidden">
@@ -217,6 +256,30 @@ export const Navbar = () => {
               )}
             </div>
           ))}
+
+          {/* Mobile Admin Menu */}
+          {isAdmin && (
+            <>
+              <div className="px-3 py-2 text-base font-medium text-gray-700">
+                Admin
+              </div>
+              <div className="pl-6">
+                {adminItems.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    className={`block px-3 py-2 rounded-md text-sm font-medium ${
+                      isActive(item.path)
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-primary'
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </nav>
