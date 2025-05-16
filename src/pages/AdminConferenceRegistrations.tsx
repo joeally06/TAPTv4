@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Download, Search, Filter, ChevronDown, ChevronUp, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
+import { Download, Search, ChevronDown, ChevronUp, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
@@ -28,83 +28,48 @@ export const AdminConferenceRegistrations: React.FC = () => {
   const navigate = useNavigate();
   const [registrations, setRegistrations] = useState<ConferenceRegistration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof ConferenceRegistration>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedRegistration, setSelectedRegistration] = useState<ConferenceRegistration | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
-    checkSession();
+    checkAdminStatus();
   }, []);
 
-  const checkSession = async () => {
+  const checkAdminStatus = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
-      console.log('Checking Supabase configuration:', {
-        url: import.meta.env.VITE_SUPABASE_URL,
-        hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
-      });
-
-      // Step 1: Get session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw new Error(`Session error: ${sessionError.message}`);
-      }
+      if (sessionError) throw sessionError;
       
       if (!session) {
-        console.error('No active session found');
-        throw new Error('No active session found');
+        navigate('/admin/login');
+        return;
       }
 
-      console.log('Session found:', {
-        userId: session.user.id,
-        email: session.user.email
-      });
-
-      // Step 2: Verify admin role
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
         .single();
 
-      if (userError) {
-        console.error('Role verification error:', userError);
-        throw new Error(`Role verification error: ${userError.message}`);
-      }
+      if (userError) throw userError;
 
       if (!userData || userData.role !== 'admin') {
-        console.error('User is not an admin:', userData);
-        throw new Error('Unauthorized: Admin privileges required');
-      }
-
-      console.log('Admin role verified:', userData);
-
-      // Step 3: Fetch data only if session and role are valid
-      await fetchRegistrations();
-
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      console.error('Session check error:', errorMessage);
-      
-      // Clean up and redirect
-      try {
         await supabase.auth.signOut();
-      } catch (signOutError) {
-        console.error('Sign out failed:', signOutError);
+        navigate('/admin/login');
+        return;
       }
-      
-      setError(errorMessage);
-      navigate('/admin/login', { replace: true });
-    } finally {
-      setLoading(false);
+
+      fetchRegistrations();
+    } catch (error) {
+      console.error('Session check error:', error);
+      navigate('/admin/login');
     }
   };
 
@@ -112,8 +77,6 @@ export const AdminConferenceRegistrations: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-
-      console.log('Fetching registrations...');
 
       const { data, error } = await supabase
         .from('conference_registrations')
@@ -123,67 +86,12 @@ export const AdminConferenceRegistrations: React.FC = () => {
         `)
         .order(sortField, { ascending: sortDirection === 'asc' });
 
-      if (error) {
-        console.error('Error fetching registrations:', error);
-        throw new Error(`Failed to fetch registrations: ${error.message}`);
-      }
+      if (error) throw error;
 
-      console.log('Raw registration data:', data);
-
-      if (!data) {
-        console.log('No data returned from query');
-        setRegistrations([]);
-        return;
-      }
-
-      // Type guard to ensure data matches our interface
-      const isValidRegistration = (item: any): item is ConferenceRegistration => {
-        const valid = (
-          typeof item.id === 'string' &&
-          typeof item.school_district === 'string' &&
-          typeof item.first_name === 'string' &&
-          typeof item.last_name === 'string' &&
-          typeof item.email === 'string' &&
-          typeof item.phone === 'string' &&
-          typeof item.total_attendees === 'number' &&
-          typeof item.total_amount === 'number' &&
-          typeof item.created_at === 'string' &&
-          (!item.attendees || Array.isArray(item.attendees))
-        );
-
-        if (!valid) {
-          console.warn('Invalid registration data:', item);
-        }
-
-        return valid;
-      };
-
-      const validRegistrations = data.filter(isValidRegistration);
-      
-      if (validRegistrations.length !== data.length) {
-        console.warn(`Filtered out ${data.length - validRegistrations.length} invalid registrations`);
-      }
-
-      console.log('Valid registrations:', validRegistrations);
-      setRegistrations(validRegistrations);
-      
-      // Save debug info
-      setDebugInfo({
-        totalRecords: data.length,
-        validRecords: validRegistrations.length,
-        invalidRecords: data.length - validRegistrations.length,
-        timestamp: new Date().toISOString()
-      });
-
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      console.error('Error fetching registrations:', errorMessage);
-      setError(errorMessage);
-      
-      // If the error might be due to an invalid session, trigger a session check
-      if (errorMessage.includes('JWT') || errorMessage.includes('authentication')) {
-        checkSession();
-      }
+      setRegistrations(data || []);
+    } catch (error: any) {
+      console.error('Error fetching registrations:', error);
+      setError('Failed to load registrations. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -202,15 +110,50 @@ export const AdminConferenceRegistrations: React.FC = () => {
     setSearchTerm(e.target.value);
   };
 
-  const filteredRegistrations = registrations.filter(registration => {
-    const searchString = searchTerm.toLowerCase();
-    return (
-      registration.school_district.toLowerCase().includes(searchString) ||
-      registration.first_name.toLowerCase().includes(searchString) ||
-      registration.last_name.toLowerCase().includes(searchString) ||
-      registration.email.toLowerCase().includes(searchString)
-    );
-  });
+  const handleDelete = async (registrationId: string) => {
+    if (!confirm('Are you sure you want to delete this registration?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('conference_registrations')
+        .delete()
+        .eq('id', registrationId);
+
+      if (error) throw error;
+
+      fetchRegistrations();
+    } catch (error: any) {
+      console.error('Error deleting registration:', error);
+      alert('Failed to delete registration. Please try again.');
+    }
+  };
+
+  const handleClearTable = async () => {
+    if (!confirm('Are you sure you want to clear all conference registrations? This action cannot be undone.')) {
+      return;
+    }
+
+    setClearing(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const { error } = await supabase
+        .from('conference_registrations')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+
+      if (error) throw error;
+
+      setRegistrations([]);
+      setSuccess('Conference registrations cleared successfully!');
+    } catch (error: any) {
+      console.error('Error clearing registrations:', error);
+      setError(`Failed to clear registrations: ${error.message}`);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const exportToCSV = () => {
     const headers = [
@@ -258,6 +201,16 @@ export const AdminConferenceRegistrations: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const filteredRegistrations = registrations.filter(registration => {
+    const searchString = searchTerm.toLowerCase();
+    return (
+      registration.school_district.toLowerCase().includes(searchString) ||
+      registration.first_name.toLowerCase().includes(searchString) ||
+      registration.last_name.toLowerCase().includes(searchString) ||
+      registration.email.toLowerCase().includes(searchString)
+    );
+  });
+
   const SortIcon = ({ field }: { field: keyof ConferenceRegistration }) => {
     if (field !== sortField) return null;
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
@@ -282,30 +235,38 @@ export const AdminConferenceRegistrations: React.FC = () => {
         </div>
       </section>
 
-      {/* Debug Information */}
-      {debugInfo && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
             <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Debug Information</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Total Records: {debugInfo.totalRecords}</p>
-                  <p>Valid Records: {debugInfo.validRecords}</p>
-                  <p>Invalid Records: {debugInfo.invalidRecords}</p>
-                  <p>Last Updated: {new Date(debugInfo.timestamp).toLocaleString()}</p>
-                </div>
+                <p className="text-sm text-red-700">{error}</p>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Supabase Connection Test */}
-      <SupabaseConnectionTest />
+        {success && (
+          <div className="mb-6 bg-green-50 border-l-4 border-green-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-green-700">{success}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Controls */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative flex-1 max-w-md">
@@ -319,13 +280,36 @@ export const AdminConferenceRegistrations: React.FC = () => {
             />
           </div>
           
-          <button
-            onClick={exportToCSV}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-          >
-            <Download className="h-5 w-5 mr-2" />
-            Export to CSV
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={handleClearTable}
+              disabled={clearing}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+            >
+              {clearing ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Clearing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-5 w-5" />
+                  Clear All
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={exportToCSV}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            >
+              <Download className="h-5 w-5 mr-2" />
+              Export to CSV
+            </button>
+          </div>
         </div>
 
         {/* Registrations Table */}
@@ -409,13 +393,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
                           <Eye className="h-5 w-5" />
                         </button>
                         <button
-                          onClick={() => {/* Handle edit */}}
-                          className="text-blue-600 hover:text-blue-800 mr-3"
-                        >
-                          <Edit className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => {/* Handle delete */}}
+                          onClick={() => handleDelete(registration.id)}
                           className="text-red-600 hover:text-red-800"
                         >
                           <Trash2 className="h-5 w-5" />
@@ -517,3 +495,5 @@ export const AdminConferenceRegistrations: React.FC = () => {
     </div>
   );
 };
+
+export default AdminConferenceRegistrations;
