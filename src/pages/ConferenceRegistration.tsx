@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle, X } from 'lucide-react';
 
 interface Attendee {
   firstName: string;
@@ -46,65 +46,49 @@ const ConferenceRegistration: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
+  const [showUnavailablePopup, setShowUnavailablePopup] = useState(false);
 
   useEffect(() => {
-    const fetchConferenceSettings = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('conference_settings')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (error) {
-          console.error('Error fetching conference settings:', error);
-          setError('Failed to load conference settings. Please try again later.');
-          return;
-        }
-
-        setConferenceSettings(data);
-
-        // Check if registration deadline has passed
-        if (data?.registration_end_date) {
-          const endDate = new Date(data.registration_end_date);
-          const now = new Date();
-          setIsRegistrationClosed(now > endDate);
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        setError('An unexpected error occurred. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel('conference_settings_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conference_settings'
-        },
-        (payload) => {
-          console.log('Conference settings changed:', payload);
-          // Refresh settings when changes occur
-          fetchConferenceSettings();
-        }
-      )
-      .subscribe();
-
-    // Initial fetch
     fetchConferenceSettings();
-
-    // Cleanup subscription
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
+
+  const fetchConferenceSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('conference_settings')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching conference settings:', error);
+        setError('Failed to load conference settings. Please try again later.');
+        setShowUnavailablePopup(true);
+        return;
+      }
+
+      if (!data) {
+        setShowUnavailablePopup(true);
+        return;
+      }
+
+      setConferenceSettings(data);
+
+      // Check if registration deadline has passed
+      if (data?.registration_end_date) {
+        const endDate = new Date(data.registration_end_date);
+        const now = new Date();
+        setIsRegistrationClosed(now > endDate);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('An unexpected error occurred. Please try again later.');
+      setShowUnavailablePopup(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const registrationFee = conferenceSettings?.fee ?? 175.00;
   const totalAmount = formData.totalAttendees * registrationFee;
@@ -250,25 +234,39 @@ const ConferenceRegistration: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
+  return (
+    <div className="pt-16">
+      {/* Unavailable Popup */}
+      {showUnavailablePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
+                <h2 className="text-xl font-bold text-gray-900">Registration Unavailable</h2>
+              </div>
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
+            <p className="text-gray-600 mb-6">
+              Conference registration is not available at this time. Please check back later or contact us for more information.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="pt-16">
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
@@ -707,6 +705,7 @@ const ConferenceRegistration: React.FC = () => {
               {/* Additional Attendees */}
               {formData.totalAttendees > 1 && (
                 <div className="mt-8">
+                  
                   <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Additional Attendees</h3>
                   {formData.additionalAttendees.map((attendee, index) => (
                     <div key={index} className="mb-6 p-4 bg-gray-50 rounded-lg">
