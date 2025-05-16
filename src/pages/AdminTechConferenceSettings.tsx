@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
-import SupabaseConnectionTest from '../../components/SupabaseConnectionTest';
+import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
 interface TechConferenceSettings {
   id: string;
