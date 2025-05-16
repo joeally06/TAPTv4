@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Mail, Phone, Building, Clock, Award, AlertCircle } from 'lucide-react';
 
+interface HallOfFameSettings {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  description: string;
+  nomination_instructions: string;
+  eligibility_criteria: string;
+}
+
 export const HallOfFameNomination: React.FC = () => {
   const [formData, setFormData] = useState({
     nomineeFirstName: '',
@@ -23,38 +33,34 @@ export const HallOfFameNomination: React.FC = () => {
     success?: boolean;
     message?: string;
   }>({});
-  const [nominationClosed, setNominationClosed] = useState(false);
+
+  const [settings, setSettings] = useState<HallOfFameSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkNominationStatus();
+    fetchSettings();
   }, []);
 
-  const checkNominationStatus = async () => {
+  const fetchSettings = async () => {
     try {
       const { data, error } = await supabase
-        .from('hall_of_fame_nominations')
-        .select('start_date, end_date')
+        .from('hall_of_fame_settings')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error('Error checking nomination status:', error);
+        console.error('Error fetching hall of fame settings:', error);
+        setError('Failed to load settings. Please try again later.');
         return;
       }
 
-      if (data) {
-        const now = new Date();
-        const startDate = data.start_date ? new Date(data.start_date) : null;
-        const endDate = data.end_date ? new Date(data.end_date) : null;
-
-        if (startDate && endDate) {
-          setNominationClosed(now < startDate || now > endDate);
-        }
-      }
+      setSettings(data);
     } catch (error) {
       console.error('Error:', error);
+      setError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -87,7 +93,7 @@ export const HallOfFameNomination: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (nominationClosed) {
+    if (!settings) {
       setFormStatus({
         success: false,
         message: 'Nominations are currently closed.'
@@ -159,25 +165,25 @@ export const HallOfFameNomination: React.FC = () => {
     );
   }
 
-  if (nominationClosed) {
+  if (!settings) {
     return (
       <div className="pt-16">
         <section className="bg-secondary text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
             <div className="max-w-3xl">
-              <h1 className="text-4xl md:text-5xl font-bold mb-6">Hall of Fame Nomination</h1>
-              <p className="text-xl text-gray-200 mb-8">Nominate an outstanding transportation professional for the TAPT Hall of Fame.</p>
+              <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Hall of Fame Nomination</h1>
             </div>
           </div>
         </section>
 
         <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
-              <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-red-800 mb-2">Nominations are Currently Closed</h2>
-              <p className="text-red-700">
-                The nomination period for the Hall of Fame is currently closed. Please check back later or contact us for more information.
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <Award className="h-16 w-16 text-primary mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-secondary mb-4">The Nomination Process is Completed</h2>
+              <p className="text-gray-600">
+                Thank you for your interest in the TAPT Hall of Fame. The nomination period has ended. 
+                Please check back later for the next nomination period.
               </p>
             </div>
           </div>
@@ -188,19 +194,31 @@ export const HallOfFameNomination: React.FC = () => {
 
   return (
     <div className="pt-16">
-      {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Hall of Fame Nomination</h1>
-            <p className="text-xl text-gray-200 mb-8 fade-in">Nominate an outstanding transportation professional for the TAPT Hall of Fame.</p>
+            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">{settings.name}</h1>
+            <p className="text-xl text-gray-200 mb-8 fade-in">{settings.description}</p>
           </div>
         </div>
       </section>
 
-      {/* Nomination Form */}
       <section className="py-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          {settings.nomination_instructions && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-semibold text-blue-800 mb-2">Nomination Instructions</h3>
+              <p className="text-blue-700">{settings.nomination_instructions}</p>
+            </div>
+          )}
+
+          {settings.eligibility_criteria && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Eligibility Criteria</h3>
+              <p className="text-gray-700">{settings.eligibility_criteria}</p>
+            </div>
+          )}
+
           {formStatus.message && (
             <div className={`mb-8 p-4 rounded-md ${formStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <div className="flex">
@@ -516,3 +534,7 @@ export const HallOfFameNomination: React.FC = () => {
     </div>
   );
 };
+
+export default HallOfFameNomination;
+
+export { HallOfFameNomination }
