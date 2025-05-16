@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Edit, MoveUp, MoveDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit, MoveUp, MoveDown, Upload, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface BoardMember {
@@ -16,12 +16,15 @@ interface BoardMember {
 
 export const AdminBoardMembers: React.FC = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [members, setMembers] = useState<BoardMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<BoardMember | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<Partial<BoardMember>>({
     name: '',
     title: '',
@@ -86,12 +89,91 @@ export const AdminBoardMembers: React.FC = () => {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file);
+        setFormData(prev => ({ ...prev, image: file.name }));
+      } else {
+        setError('Please select an image file');
+      }
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    try {
+      setUploading(true);
+      setError(null);
+
+      // Create a copy of the file with a sanitized name
+      const fileName = selectedFile.name.toLowerCase().replace(/[^a-z0-9.-]/g, '-');
+      const newFile = new File([selectedFile], fileName, { type: selectedFile.type });
+
+      // Create a Blob URL for the file
+      const fileUrl = URL.createObjectURL(newFile);
+
+      // Create an image element to check dimensions
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = fileUrl;
+      });
+
+      // Revoke the Blob URL
+      URL.revokeObjectURL(fileUrl);
+
+      // Copy file to src/images/board-members/
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        if (e.target?.result) {
+          try {
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                fileName,
+                content: e.target.result,
+                directory: 'src/images/board-members'
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to upload image');
+            }
+
+            setFormData(prev => ({ ...prev, image: fileName }));
+            setSuccess('Image uploaded successfully!');
+          } catch (error) {
+            console.error('Error uploading image:', error);
+            setError('Failed to upload image. Please try again.');
+          }
+        }
+      };
+      reader.readAsDataURL(newFile);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setError('Failed to process image. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
     try {
+      if (selectedFile) {
+        await handleUpload();
+      }
+
       const id = editingMember ? editingMember.id : uuidv4();
       const { error } = await supabase
         .from('board_members')
@@ -106,6 +188,7 @@ export const AdminBoardMembers: React.FC = () => {
       setSuccess(`Board member ${editingMember ? 'updated' : 'added'} successfully!`);
       setShowForm(false);
       setEditingMember(null);
+      setSelectedFile(null);
       setFormData({
         name: '',
         title: '',
@@ -291,17 +374,42 @@ export const AdminBoardMembers: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Image Filename
+                    Image
                   </label>
-                  <input
-                    type="text"
-                    value={formData.image || ''}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="e.g., john-smith.jpg"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-                  />
+                  <div className="mt-1 flex items-center space-x-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      <Upload className="h-5 w-5 mr-2" />
+                      Choose Image
+                    </button>
+                    {selectedFile && (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-500">{selectedFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            setFormData(prev => ({ ...prev, image: '' }));
+                          }}
+                          className="text-gray-400 hover:text-gray-500"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <p className="mt-1 text-sm text-gray-500">
-                    Place image files in src/images/board-members/
+                    Upload a profile image (JPG, PNG)
                   </p>
                 </div>
               </div>
@@ -324,6 +432,7 @@ export const AdminBoardMembers: React.FC = () => {
                   onClick={() => {
                     setShowForm(false);
                     setEditingMember(null);
+                    setSelectedFile(null);
                     setFormData({
                       name: '',
                       title: '',
@@ -339,9 +448,20 @@ export const AdminBoardMembers: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90"
+                  disabled={uploading}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {editingMember ? 'Update Member' : 'Add Member'}
+                  {uploading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    editingMember ? 'Update Member' : 'Add Member'
+                  )}
                 </button>
               </div>
             </form>
@@ -374,7 +494,16 @@ export const AdminBoardMembers: React.FC = () => {
               {members.map((member, index) => (
                 <tr key={member.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                    <div className="flex items-center">
+                      {member.image && (
+                        <img
+                          src={member.image.startsWith('http') ? member.image : `/src/images/board-members/${member.image}`}
+                          alt={member.name}
+                          className="h-10 w-10 rounded-full object-cover mr-3"
+                        />
+                      )}
+                      <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500">{member.title}</div>
