@@ -10,7 +10,9 @@ import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminUsers } from './pages/AdminUsers';
 import ConferenceRegistration from './pages/ConferenceRegistration';
+import TechConferenceRegistration from './pages/TechConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
+import { AdminTechConferenceRegistrations } from './pages/AdminTechConferenceRegistrations';
 import { AdminConferenceSettings } from './pages/AdminConferenceSettings';
 import { AdminHallOfFameNominations } from './pages/AdminHallOfFameNominations';
 import { HallOfFameNomination } from './pages/HallOfFameNomination';
@@ -58,11 +60,13 @@ function App() {
               <Route path="/members" element={<Members />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/conference-registration" element={<ConferenceRegistration />} />
+              <Route path="/tech-conference-registration" element={<TechConferenceRegistration />} />
               <Route path="/hall-of-fame-nomination" element={<HallOfFameNomination />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
+              <Route path="/admin/tech-conference-registrations" element={<AdminTechConferenceRegistrations />} />
               <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
               <Route path="/admin/hall-of-fame-nominations" element={<AdminHallOfFameNominations />} />
               <Route path="/admin/test" element={<AdminTestComponent />} />
