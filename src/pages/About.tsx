@@ -12,28 +12,28 @@ export const About: React.FC = () => {
       name: "John Smith",
       title: "President",
       district: "Knox County Schools",
-      image: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&h=300",
+      image: "/src/images/board-members/john-smith.jpg",
       bio: "John has been in school transportation for 20 years and currently serves as Transportation Director for Knox County Schools."
     },
     {
       name: "Sarah Johnson",
       title: "Vice President",
       district: "Metro Nashville Public Schools",
-      image: "https://images.pexels.com/photos/3796217/pexels-photo-3796217.jpeg?auto=compress&cs=tinysrgb&h=300",
+      image: "/src/images/board-members/sarah-johnson.jpg",
       bio: "Sarah oversees transportation for Metro Nashville Public Schools and has been a TAPT member for 12 years."
     },
     {
       name: "Robert Williams",
       title: "Secretary",
       district: "Hamilton County Schools",
-      image: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&h=300",
+      image: "/src/images/board-members/robert-williams.jpg",
       bio: "Robert brings over 15 years of experience in school transportation safety and compliance to the TAPT board."
     },
     {
       name: "Lisa Davis",
       title: "Treasurer",
       district: "Shelby County Schools",
-      image: "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&h=300",
+      image: "/src/images/board-members/lisa-davis.jpg",
       bio: "Lisa has a background in finance and has managed transportation budgets for Shelby County Schools for 8 years."
     },
   ];
