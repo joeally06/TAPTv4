@@ -108,57 +108,33 @@ export const AdminBoardMembers: React.FC = () => {
       setUploading(true);
       setError(null);
 
-      // Create a copy of the file with a sanitized name
-      const fileName = selectedFile.name.toLowerCase().replace(/[^a-z0-9.-]/g, '-');
-      const newFile = new File([selectedFile], fileName, { type: selectedFile.type });
+      // Create a unique file name
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `board-members/${fileName}`;
 
-      // Create a Blob URL for the file
-      const fileUrl = URL.createObjectURL(newFile);
+      // Upload file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('public')
+        .upload(filePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      // Create an image element to check dimensions
-      const img = new Image();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = fileUrl;
-      });
+      if (uploadError) throw uploadError;
 
-      // Revoke the Blob URL
-      URL.revokeObjectURL(fileUrl);
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('public')
+        .getPublicUrl(filePath);
 
-      // Copy file to src/images/board-members/
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        if (e.target?.result) {
-          try {
-            const response = await fetch('/api/upload', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                fileName,
-                content: e.target.result,
-                directory: 'src/images/board-members'
-              })
-            });
-
-            if (!response.ok) {
-              throw new Error('Failed to upload image');
-            }
-
-            setFormData(prev => ({ ...prev, image: fileName }));
-            setSuccess('Image uploaded successfully!');
-          } catch (error) {
-            console.error('Error uploading image:', error);
-            setError('Failed to upload image. Please try again.');
-          }
-        }
-      };
-      reader.readAsDataURL(newFile);
-    } catch (error) {
-      console.error('Error processing image:', error);
-      setError('Failed to process image. Please try again.');
+      setFormData(prev => ({ ...prev, image: publicUrl }));
+      setSuccess('Image uploaded successfully!');
+      return publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      setError('Failed to upload image. Please try again.');
+      throw error;
     } finally {
       setUploading(false);
     }
@@ -170,8 +146,9 @@ export const AdminBoardMembers: React.FC = () => {
     setSuccess(null);
 
     try {
+      let imageUrl = formData.image;
       if (selectedFile) {
-        await handleUpload();
+        imageUrl = await handleUpload();
       }
 
       const id = editingMember ? editingMember.id : uuidv4();
@@ -180,6 +157,7 @@ export const AdminBoardMembers: React.FC = () => {
         .upsert({
           id,
           ...formData,
+          image: imageUrl,
           order: formData.order || members.length
         });
 
@@ -208,6 +186,17 @@ export const AdminBoardMembers: React.FC = () => {
     if (!confirm('Are you sure you want to delete this board member?')) return;
 
     try {
+      // Get the member to delete their image if it exists
+      const memberToDelete = members.find(m => m.id === id);
+      if (memberToDelete?.image) {
+        const imagePath = memberToDelete.image.split('/').pop();
+        if (imagePath) {
+          await supabase.storage
+            .from('public')
+            .remove([`board-members/${imagePath}`]);
+        }
+      }
+
       const { error } = await supabase
         .from('board_members')
         .delete()
@@ -497,7 +486,7 @@ export const AdminBoardMembers: React.FC = () => {
                     <div className="flex items-center">
                       {member.image && (
                         <img
-                          src={member.image.startsWith('http') ? member.image : `/src/images/board-members/${member.image}`}
+                          src={member.image}
                           alt={member.name}
                           className="h-10 w-10 rounded-full object-cover mr-3"
                         />
