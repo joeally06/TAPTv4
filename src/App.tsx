@@ -11,6 +11,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminUsers } from './pages/AdminUsers';
 import { BoardMembers } from './pages/BoardMembers';
 import { AdminBoardMembers } from './pages/AdminBoardMembers';
+import { AdminContent } from './pages/AdminContent';
 import ConferenceRegistration from './pages/ConferenceRegistration';
 import TechConferenceRegistration from './pages/TechConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
@@ -74,6 +75,7 @@ function App() {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/board-members" element={<AdminBoardMembers />} />
+              <Route path="/admin/content" element={<AdminContent />} />
               <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
               <Route path="/admin/tech-conference-registrations" element={<AdminTechConferenceRegistrations />} />
               <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
