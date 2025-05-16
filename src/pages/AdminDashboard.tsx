@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
@@ -18,7 +18,8 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
-    registrations: 0,
+    conferenceRegistrations: 0,
+    techConferenceRegistrations: 0,
     nominations: 0
   });
 
@@ -66,19 +67,27 @@ export const AdminDashboard: React.FC = () => {
         throw new Error('Authentication required');
       }
 
-      // Get registration stats
-      const { data: regData, count: registrationsCount, error: regError } = await supabase
+      // Get conference registration stats
+      const { count: conferenceCount, error: confError } = await supabase
         .from('conference_registrations')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .throwOnError();
 
-      if (regError) {
-        console.error('Error fetching registrations:', regError);
-        throw regError;
+      if (confError) {
+        console.error('Error fetching conference registrations:', confError);
+        throw confError;
       }
 
-      console.log('Raw registration data:', regData);
-      console.log('Registrations count:', registrationsCount);
+      // Get tech conference registration stats
+      const { count: techConfCount, error: techConfError } = await supabase
+        .from('tech_conference_registrations')
+        .select('*', { count: 'exact', head: true })
+        .throwOnError();
+
+      if (techConfError) {
+        console.error('Error fetching tech conference registrations:', techConfError);
+        throw techConfError;
+      }
 
       // Get nomination stats
       const { count: nominationsCount, error: nomError } = await supabase
@@ -92,7 +101,8 @@ export const AdminDashboard: React.FC = () => {
       }
 
       setStats({
-        registrations: registrationsCount || 0,
+        conferenceRegistrations: conferenceCount || 0,
+        techConferenceRegistrations: techConfCount || 0,
         nominations: nominationsCount || 0
       });
     } catch (error) {
@@ -121,6 +131,13 @@ export const AdminDashboard: React.FC = () => {
       color: 'bg-blue-500'
     },
     {
+      title: 'Tech Conference Settings',
+      description: 'Configure tech conference details and registration options',
+      icon: <Settings className="h-6 w-6" />,
+      link: '/admin/tech-conference-settings',
+      color: 'bg-purple-500'
+    },
+    {
       title: 'Conference Registrations',
       description: 'View and manage conference registrations',
       icon: <Calendar className="h-6 w-6" />,
@@ -128,11 +145,18 @@ export const AdminDashboard: React.FC = () => {
       color: 'bg-green-500'
     },
     {
+      title: 'Tech Conference Registrations',
+      description: 'View and manage tech conference registrations',
+      icon: <Calendar className="h-6 w-6" />,
+      link: '/admin/tech-conference-registrations',
+      color: 'bg-indigo-500'
+    },
+    {
       title: 'Hall of Fame Nominations',
       description: 'Review and manage Hall of Fame nominations',
       icon: <Award className="h-6 w-6" />,
       link: '/admin/hall-of-fame-nominations',
-      color: 'bg-purple-500'
+      color: 'bg-yellow-500'
     },
     {
       title: 'User Management',
@@ -153,7 +177,7 @@ export const AdminDashboard: React.FC = () => {
       description: 'Manage system notifications and alerts',
       icon: <Bell className="h-6 w-6" />,
       link: '/admin/notifications',
-      color: 'bg-yellow-500'
+      color: 'bg-pink-500'
     }
   ];
 
@@ -203,7 +227,7 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-6">
               <div className="flex items-center">
@@ -215,7 +239,25 @@ export const AdminDashboard: React.FC = () => {
                     Conference Registrations
                   </p>
                   <p className="mt-1 text-3xl font-semibold text-gray-900">
-                    {stats.registrations}
+                    {stats.conferenceRegistrations}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5">
+                  <p className="text-sm font-medium text-gray-500 truncate">
+                    Tech Conference Registrations
+                  </p>
+                  <p className="mt-1 text-3xl font-semibold text-gray-900">
+                    {stats.techConferenceRegistrations}
                   </p>
                 </div>
               </div>
