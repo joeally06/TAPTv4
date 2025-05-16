@@ -11,7 +11,8 @@ import {
   Bell,
   Image,
   Save,
-  X
+  X,
+  Upload
 } from 'lucide-react';
 
 interface ContentItem {
@@ -27,12 +28,25 @@ interface ContentItem {
   link?: string;
 }
 
+interface ResourceItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export const AdminContent: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
+  const [resources, setResources] = useState<ResourceItem[]>([]);
   const [selectedType, setSelectedType] = useState<ContentItem['type']>('event');
   const [showForm, setShowForm] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -48,7 +62,11 @@ export const AdminContent: React.FC = () => {
 
   useEffect(() => {
     checkAdminStatus();
-    fetchContent();
+    if (selectedType === 'resource') {
+      fetchResources();
+    } else {
+      fetchContent();
+    }
   }, [selectedType]);
 
   const checkAdminStatus = async () => {
@@ -100,14 +118,29 @@ export const AdminContent: React.FC = () => {
     }
   };
 
+  const fetchResources = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('resources')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setResources(data || []);
+    } catch (error: any) {
+      console.error('Error fetching resources:', error);
+      setError('Failed to load resources');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.type.startsWith('image/')) {
-        setSelectedFile(file);
-      } else {
-        setError('Please select an image file');
-      }
+      setSelectedFile(file);
     }
   };
 
@@ -117,38 +150,80 @@ export const AdminContent: React.FC = () => {
     setSuccess(null);
 
     try {
-      let imagePath = formData.image_url;
-
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to upload image');
+      if (selectedType === 'resource') {
+        if (!selectedFile) {
+          throw new Error('Please select a file to upload');
         }
 
-        const { path } = await response.json();
-        imagePath = path;
+        // Upload file to storage
+        const fileExt = selectedFile.name.split('.').pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `resources/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('public')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('public')
+          .getPublicUrl(filePath);
+
+        // Create resource record
+        const { error: dbError } = await supabase
+          .from('resources')
+          .insert([{
+            title: formData.title,
+            description: formData.description,
+            category: formData.category || 'other',
+            file_url: publicUrl,
+            file_type: fileExt || '',
+            file_size: selectedFile.size
+          }]);
+
+        if (dbError) throw dbError;
+
+        setSuccess('Resource added successfully!');
+        fetchResources();
+      } else {
+        let imagePath = formData.image_url;
+
+        if (selectedFile) {
+          const fileExt = selectedFile.name.split('.').pop();
+          const fileName = `${crypto.randomUUID()}.${fileExt}`;
+          const filePath = `content/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('public')
+            .upload(filePath, selectedFile);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('public')
+            .getPublicUrl(filePath);
+
+          imagePath = publicUrl;
+        }
+
+        const contentData = {
+          ...formData,
+          image_url: imagePath,
+          type: selectedType
+        };
+
+        const { error } = await supabase
+          .from('content')
+          .upsert([contentData]);
+
+        if (error) throw error;
+
+        setSuccess(`Content ${editingItem ? 'updated' : 'added'} successfully!`);
+        fetchContent();
       }
 
-      const contentData = {
-        ...formData,
-        image_url: imagePath,
-        type: selectedType
-      };
-
-      const { error } = await supabase
-        .from('content')
-        .upsert([contentData]);
-
-      if (error) throw error;
-
-      setSuccess(`Content ${editingItem ? 'updated' : 'added'} successfully!`);
       setShowForm(false);
       setEditingItem(null);
       setSelectedFile(null);
@@ -159,7 +234,6 @@ export const AdminContent: React.FC = () => {
         status: 'draft',
         featured: false
       });
-      fetchContent();
     } catch (error: any) {
       console.error('Error saving content:', error);
       setError(`Failed to save content: ${error.message}`);
@@ -170,18 +244,30 @@ export const AdminContent: React.FC = () => {
     if (!confirm('Are you sure you want to delete this item?')) return;
 
     try {
-      const { error } = await supabase
-        .from('content')
-        .delete()
-        .eq('id', id);
+      if (selectedType === 'resource') {
+        const { error } = await supabase
+          .from('resources')
+          .delete()
+          .eq('id', id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setSuccess('Content deleted successfully!');
-      fetchContent();
+        setSuccess('Resource deleted successfully!');
+        fetchResources();
+      } else {
+        const { error } = await supabase
+          .from('content')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setSuccess('Content deleted successfully!');
+        fetchContent();
+      }
     } catch (error: any) {
-      console.error('Error deleting content:', error);
-      setError(`Failed to delete content: ${error.message}`);
+      console.error('Error deleting item:', error);
+      setError(`Failed to delete item: ${error.message}`);
     }
   };
 
@@ -197,6 +283,14 @@ export const AdminContent: React.FC = () => {
     { id: 'resource', label: 'Resources', icon: FileText },
     { id: 'news', label: 'News', icon: FileText }
   ] as const;
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   return (
     <div className="pt-16">
@@ -275,7 +369,7 @@ export const AdminContent: React.FC = () => {
 
         {/* Content Form */}
         {showForm && (
-          <div className="mb-8 bg-white rounded-lg shadow-md p-6">
+          <div className="mb-8 bg-white shadow-md rounded-lg p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-secondary">
                 {editingItem ? `Edit ${selectedType}` : `Add New ${selectedType}`}
@@ -315,87 +409,117 @@ export const AdminContent: React.FC = () => {
                 />
               </div>
 
-              {selectedType !== 'resource' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Image
-                  </label>
-                  <div className="mt-1 flex items-center space-x-4">
+              {selectedType === 'resource' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Category
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                    >
+                      <option value="">Select Category</option>
+                      <option value="manuals">Manuals & Guides</option>
+                      <option value="forms">Forms & Documents</option>
+                      <option value="laws">Laws & Regulations</option>
+                      <option value="training">Training Materials</option>
+                      <option value="safety">Safety Resources</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      File
+                    </label>
                     <input
                       type="file"
                       onChange={handleFileSelect}
-                      accept="image/*"
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      required={!editingItem}
+                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                     />
                     {selectedFile && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedFile(null)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
+                      <p className="mt-2 text-sm text-gray-500">
+                        Selected file: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                      </p>
                     )}
                   </div>
-                </div>
-              )}
+                </>
+              ) : (
+                <>
+                  {selectedType !== 'resource' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Image
+                      </label>
+                      <input
+                        type="file"
+                        onChange={handleFileSelect}
+                        accept="image/*"
+                        className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      />
+                    </div>
+                  )}
 
-              {selectedType === 'event' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-                    />
+                  {selectedType === 'event' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.date}
+                          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Link (Optional)
+                        </label>
+                        <input
+                          type="url"
+                          value={formData.link}
+                          onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Status
+                      </label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value as 'draft' | 'published' })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="published">Published</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="featured"
+                        checked={formData.featured}
+                        onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                      />
+                      <label htmlFor="featured" className="ml-2 block text-sm text-gray-700">
+                        Featured
+                      </label>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Link (Optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.link}
-                      onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-                    />
-                  </div>
-                </div>
+                </>
               )}
-
-              <div className="flex items-center space-x-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as 'draft' | 'published' })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="published">Published</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="featured"
-                    checked={formData.featured}
-                    onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                  />
-                  <label htmlFor="featured" className="ml-2 block text-sm text-gray-700">
-                    Featured
-                  </label>
-                </div>
-              </div>
 
               <div className="flex justify-end space-x-3">
                 <button
@@ -424,9 +548,63 @@ export const AdminContent: React.FC = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading content...</p>
             </div>
-          ) : contentItems.length === 0 ? (
-            <div className="p-6 text-center">
-              <p className="text-gray-500">No {selectedType} items found</p>
+          ) : selectedType === 'resource' ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Title
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Category
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      File Type
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Size
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date Added
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {resources.map((resource) => (
+                    <tr key={resource.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{resource.title}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{resource.category}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{resource.file_type.toUpperCase()}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{formatFileSize(resource.file_size)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {new Date(resource.created_at).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleDelete(resource.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="overflow-x-auto">
