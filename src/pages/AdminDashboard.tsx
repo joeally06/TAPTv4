@@ -9,7 +9,6 @@ import {
   Award,
   FileText,
   Bell,
-  ChevronRight,
   LogOut
 } from 'lucide-react';
 
@@ -125,7 +124,7 @@ export const AdminDashboard: React.FC = () => {
   const adminModules = [
     {
       title: 'Conference Settings',
-      description: 'Configure conference details, dates, and registration options',
+      description: 'Configure conference details and registration options',
       icon: <Settings className="h-6 w-6" />,
       link: '/admin/conference-settings',
       color: 'bg-blue-500'
@@ -138,11 +137,18 @@ export const AdminDashboard: React.FC = () => {
       color: 'bg-purple-500'
     },
     {
+      title: 'Hall of Fame Settings',
+      description: 'Configure Hall of Fame nomination period and requirements',
+      icon: <Settings className="h-6 w-6" />,
+      link: '/admin/hall-of-fame-settings',
+      color: 'bg-green-500'
+    },
+    {
       title: 'Conference Registrations',
       description: 'View and manage conference registrations',
       icon: <Calendar className="h-6 w-6" />,
       link: '/admin/conference-registrations',
-      color: 'bg-green-500'
+      color: 'bg-orange-500'
     },
     {
       title: 'Tech Conference Registrations',
@@ -163,14 +169,14 @@ export const AdminDashboard: React.FC = () => {
       description: 'Manage user accounts and permissions',
       icon: <Users className="h-6 w-6" />,
       link: '/admin/users',
-      color: 'bg-orange-500'
+      color: 'bg-red-500'
     },
     {
       title: 'Content Management',
       description: 'Update website content and resources',
       icon: <FileText className="h-6 w-6" />,
       link: '/admin/content',
-      color: 'bg-red-500'
+      color: 'bg-teal-500'
     },
     {
       title: 'Notifications',
@@ -304,10 +310,6 @@ export const AdminDashboard: React.FC = () => {
                       {module.description}
                     </p>
                   </div>
-                </div>
-                <div className="mt-4 flex items-center text-sm text-primary">
-                  <span>Manage</span>
-                  <ChevronRight className="ml-1 h-4 w-4" />
                 </div>
               </div>
             </Link>

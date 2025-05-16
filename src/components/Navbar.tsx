@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -99,10 +99,11 @@ export const Navbar = () => {
   const adminItems = [
     { name: 'Dashboard', path: '/admin' },
     { name: 'Users', path: '/admin/users' },
-    { name: 'Conference Registrations', path: '/admin/conference-registrations' },
-    { name: 'Tech Conference Registrations', path: '/admin/tech-conference-registrations' },
     { name: 'Conference Settings', path: '/admin/conference-settings' },
+    { name: 'Conference Registrations', path: '/admin/conference-registrations' },
     { name: 'Tech Conference Settings', path: '/admin/tech-conference-settings' },
+    { name: 'Tech Conference Registrations', path: '/admin/tech-conference-registrations' },
+    { name: 'Hall of Fame Settings', path: '/admin/hall-of-fame-settings' },
     { name: 'Hall of Fame Nominations', path: '/admin/hall-of-fame-nominations' }
   ];
 
@@ -143,7 +144,7 @@ export const Navbar = () => {
                       {item.name}
                       <ChevronDown className="ml-1 h-4 w-4" />
                     </button>
-                    <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover: opacity-100 group-hover:visible transition-all duration-200">
+                    <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                       <div className="py-1">
                         {item.subItems.map((subItem) => (
                           <Link
