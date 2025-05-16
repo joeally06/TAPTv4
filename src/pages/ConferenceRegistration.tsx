@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle, X } from 'lucide-react';
 
 interface Attendee {
   firstName: string;
@@ -46,65 +46,49 @@ const ConferenceRegistration: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
+  const [showUnavailablePopup, setShowUnavailablePopup] = useState(false);
 
   useEffect(() => {
-    const fetchConferenceSettings = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('conference_settings')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (error) {
-          console.error('Error fetching conference settings:', error);
-          setError('Failed to load conference settings. Please try again later.');
-          return;
-        }
-
-        setConferenceSettings(data);
-
-        // Check if registration deadline has passed
-        if (data?.registration_end_date) {
-          const endDate = new Date(data.registration_end_date);
-          const now = new Date();
-          setIsRegistrationClosed(now > endDate);
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        setError('An unexpected error occurred. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel('conference_settings_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conference_settings'
-        },
-        (payload) => {
-          console.log('Conference settings changed:', payload);
-          // Refresh settings when changes occur
-          fetchConferenceSettings();
-        }
-      )
-      .subscribe();
-
-    // Initial fetch
     fetchConferenceSettings();
-
-    // Cleanup subscription
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
+
+  const fetchConferenceSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('conference_settings')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching conference settings:', error);
+        setError('Failed to load conference settings. Please try again later.');
+        setShowUnavailablePopup(true);
+        return;
+      }
+
+      if (!data) {
+        setShowUnavailablePopup(true);
+        return;
+      }
+
+      setConferenceSettings(data);
+
+      // Check if registration deadline has passed
+      if (data?.registration_end_date) {
+        const endDate = new Date(data.registration_end_date);
+        const now = new Date();
+        setIsRegistrationClosed(now > endDate);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('An unexpected error occurred. Please try again later.');
+      setShowUnavailablePopup(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const registrationFee = conferenceSettings?.fee ?? 175.00;
   const totalAmount = formData.totalAttendees * registrationFee;
@@ -114,12 +98,11 @@ const ConferenceRegistration: React.FC = () => {
     
     if (name === 'totalAttendees') {
       const attendees = Math.max(1, parseInt(value) || 1);
-      // Update additional attendees array length
       const currentAttendees = formData.additionalAttendees;
+      
       if (attendees > 1) {
         const diff = attendees - 1 - currentAttendees.length;
         if (diff > 0) {
-          // Add empty attendee slots
           const newAttendees = [...currentAttendees];
           for (let i = 0; i < diff; i++) {
             newAttendees.push({ firstName: '', lastName: '', email: '' });
@@ -130,7 +113,6 @@ const ConferenceRegistration: React.FC = () => {
             additionalAttendees: newAttendees
           }));
         } else if (diff < 0) {
-          // Remove excess attendee slots
           setFormData(prev => ({
             ...prev,
             [name]: attendees,
@@ -138,7 +120,6 @@ const ConferenceRegistration: React.FC = () => {
           }));
         }
       } else {
-        // Reset additional attendees if total is 1
         setFormData(prev => ({
           ...prev,
           [name]: attendees,
@@ -235,7 +216,7 @@ const ConferenceRegistration: React.FC = () => {
       console.error('Error submitting registration:', error);
       setFormStatus({
         success: false,
-        message: `Error submitting registration: ${error.message || 'Unknown error'}`
+        message: `Error submitting registration: ${error.message}`
       });
     } finally {
       setIsSubmitting(false);
@@ -250,25 +231,39 @@ const ConferenceRegistration: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
+  return (
+    <div className="pt-16">
+      {/* Unavailable Popup */}
+      {showUnavailablePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
+                <h2 className="text-xl font-bold text-gray-900">Registration Unavailable</h2>
+              </div>
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
+            <p className="text-gray-600 mb-6">
+              Conference registration is not available at this time. Please check back later or contact us for more information.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="pt-16">
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
@@ -280,115 +275,118 @@ const ConferenceRegistration: React.FC = () => {
       </section>
 
       {/* Conference Info */}
-      <section className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="p-8 md:p-10">
-              <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Annual Conference'}</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div>
-                  <h3 className="text-xl font-semibold text-primary mb-4">Event Details</h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <Calendar className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Date:</span>
-                        <p>{new Date(conferenceSettings?.start_date || '').toLocaleDateString()} - {new Date(conferenceSettings?.end_date || '').toLocaleDateString()}</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <MapPin className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Location:</span>
-                        <p>{conferenceSettings?.venue}</p>
-                        <p>{conferenceSettings?.location}</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
+      {!isRegistrationClosed && conferenceSettings && (
+        <section className="py-12 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="p-8 md:p-10">
+                <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Annual Conference'}</h2>
                 
-                <div>
-                  <h3 className="text-xl font-semibold text-primary mb-4">Registration Information</h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <DollarSign className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Registration Fee:</span>
-                        <p>${registrationFee.toFixed(2)} per attendee</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <Mail className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Payment Instructions:</span>
-                        <p>{conferenceSettings?.payment_instructions}</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              {conferenceSettings?.description && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                  <p className="text-gray-700">{conferenceSettings.description}</p>
-                </div>
-              )}
-
-              {/* Registration Deadline Notice */}
-              {conferenceSettings?.registration_end_date && (
-                <div className={`mt-6 p-4 rounded-md ${
-                  isRegistrationClosed 
-                    ? 'bg-red-50 border border-red-200' 
-                    : 'bg-yellow-50 border border-yellow-200'
-                }`}>
-                  <div className="flex items-start">
-                    <AlertCircle className={`h-5 w-5 ${
-                      isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
-                    }`} />
-                    <div className="ml-3">
-                      <h3 className={`text-sm font-medium ${
-                        isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
-                      }`}>
-                        {isRegistrationClosed 
-                          ? 'Registration is closed'
-                          : 'Registration deadline approaching'
-                        }
-                      </h3>
-                      <p className={`mt-1 text-sm ${
-                        isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
-                      }`}>
-                        {isRegistrationClosed
-                          ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                          : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                        }
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                  <div>
+                    <h3 className="text-xl font-semibold text-primary mb-4">Event Details</h3>
+                    <ul className="space-y-4">
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <Calendar className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Date:</span>
+                          <p>{new Date(conferenceSettings?.start_date || '').toLocaleDateString()} - {new Date(conferenceSettings?.end_date || '').toLocaleDateString()}</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <MapPin className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Location:</span>
+                          <p>{conferenceSettings?.venue}</p>
+                          <p>{conferenceSettings?.location}</p>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-xl font-semibold text-primary mb-4">Registration Information</h3>
+                    <ul className="space-y-4">
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <DollarSign className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Registration Fee:</span>
+                          <p>${registrationFee.toFixed(2)} per attendee</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <Mail className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Payment Instructions:</span>
+                          <p>{conferenceSettings?.payment_instructions}</p>
+                        </div>
+                      </li>
+                    </ul>
                   </div>
                 </div>
-              )}
+
+                {conferenceSettings?.description && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-md">
+                    <p className="text-gray-700">{conferenceSettings.description}</p>
+                  </div>
+                )}
+
+                {/* Registration Deadline Notice */}
+                {conferenceSettings?.registration_end_date && (
+                  <div className={`mt-6 p-4 rounded-md ${
+                    isRegistrationClosed 
+                      ? 'bg-red-50 border border-red-200' 
+                      : 'bg-yellow-50 border border-yellow-200'
+                  }`}>
+                    <div className="flex items-start">
+                      <AlertCircle className={`h-5 w-5 ${
+                        isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
+                      }`} />
+                      <div className="ml-3">
+                        <h3 className={`text-sm font-medium ${
+                          isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
+                        }`}>
+                          {isRegistrationClosed 
+                            ? 'Registration is closed'
+                            : 'Registration deadline approaching'
+                          }
+                        </h3>
+                        <p className={`mt-1 text-sm ${
+                          isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
+                        }`}>
+                          {isRegistrationClosed
+                            ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                            : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Registration Form */}
-      {isRegistrationClosed ? (
+      {isRegistrationClosed || !conferenceSettings ? (
         <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
-              <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-red-800 mb-2">Registration is Closed</h2>
-              <p className="text-red-700">
-                The registration deadline for this conference has passed. Please contact us for any inquiries.
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <Calendar className="h-16 w-16 text-primary mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-secondary mb-4">Registration has now closed</h2>
+              <p className="text-gray-600">
+                Thank you for your interest in the TAPT Conference. Registration is currently closed. 
+                Please check back later for future events.
               </p>
             </div>
           </div>
@@ -396,63 +394,58 @@ const ConferenceRegistration: React.FC = () => {
       ) : (
         <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-secondary mb-4">Registration Form</h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
-                Complete the form below to register for the {conferenceSettings?.name || 'TAPT Annual Conference'}. After submission, please mail your payment check to the address provided.
-              </p>
-            </div>
-
             {formStatus.message && (
               <div className={`mb-8 p-4 rounded-md ${formStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                 <div className="flex">
                   <div className="flex-shrink-0">
                     {formStatus.success ? (
-                      <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     ) : (
-                      <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                     )}
                   </div>
                   <div className="ml-3">
-                    <h3 className={`text-sm font-medium ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
+                    <p className={`text-sm ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
                       {formStatus.message}
-                    </h3>
+                    </p>
                   </div>
                 </div>
               </div>
             )}
-            
+
             <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-lg p-8">
-              {/* School District */}
-              <div>
-                <label htmlFor="schoolDistrict" className="block text-sm font-medium text-gray-700 mb-1">
-                  School District or Company <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Building className="h-5 w-5 text-gray-400" />
+              {/* Organization Information */}
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-secondary mb-6">Organization Information</h2>
+                <div>
+                  <label htmlFor="schoolDistrict" className="block text-sm font-medium text-gray-700 mb-1">
+                    School District or Organization <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Building className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      id="schoolDistrict"
+                      name="schoolDistrict"
+                      value={formData.schoolDistrict}
+                      onChange={handleChange}
+                      required
+                      className="pl-10 block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    id="schoolDistrict"
-                    name="schoolDistrict"
-                    value={formData.schoolDistrict}
-                    onChange={handleChange}
-                    required
-                    className="pl-10 block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
-                  />
                 </div>
               </div>
 
-              {/* Attendee Information */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Attendee Information</h3>
+              {/* Contact Information */}
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-secondary mb-6">Primary Contact</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* First Name */}
                   <div>
                     <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
                       First Name <span className="text-red-500">*</span>
@@ -473,7 +466,6 @@ const ConferenceRegistration: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Last Name */}
                   <div>
                     <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
                       Last Name <span className="text-red-500">*</span>
@@ -493,142 +485,7 @@ const ConferenceRegistration: React.FC = () => {
                       />
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Address */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Address</h3>
-                
-                {/* Street Address */}
-                <div className="mb-6">
-                  <label htmlFor="streetAddress" className="block text-sm font-medium text-gray-700 mb-1">
-                    Street Address <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPin className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      id="streetAddress"
-                      name="streetAddress"
-                      value={formData.streetAddress}
-                      onChange={handleChange}
-                      required
-                      className="pl-10 block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* City */}
-                  <div>
-                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                      City <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="city"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleChange}
-                      required
-                      className="block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
-                    />
-                  </div>
-
-                  {/* State */}
-                  <div>
-                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
-                      State <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id="state"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleChange}
-                      required
-                      className="block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
-                    >
-                      <option value="">Select State</option>
-                      <option value="AL">Alabama</option>
-                      <option value="AK">Alaska</option>
-                      <option value="AZ">Arizona</option>
-                      <option value="AR">Arkansas</option>
-                      <option value="CA">California</option>
-                      <option value="CO">Colorado</option>
-                      <option value="CT">Connecticut</option>
-                      <option value="DE">Delaware</option>
-                      <option value="DC">District Of Columbia</option>
-                      <option value="FL">Florida</option>
-                      <option value="GA">Georgia</option>
-                      <option value="HI">Hawaii</option>
-                      <option value="ID">Idaho</option>
-                      <option value="IL">Illinois</option>
-                      <option value="IN">Indiana</option>
-                      <option value="IA">Iowa</option>
-                      <option value="KS">Kansas</option>
-                      <option value="KY">Kentucky</option>
-                      <option value="LA">Louisiana</option>
-                      <option value="ME">Maine</option>
-                      <option value="MD">Maryland</option>
-                      <option value="MA">Massachusetts</option>
-                      <option value="MI">Michigan</option>
-                      <option value="MN">Minnesota</option>
-                      <option value="MS">Mississippi</option>
-                      <option value="MO">Missouri</option>
-                      <option value="MT">Montana</option>
-                      <option value="NE">Nebraska</option>
-                      <option value="NV">Nevada</option>
-                      <option value="NH">New Hampshire</option>
-                      <option value="NJ">New Jersey</option>
-                      <option value="NM">New Mexico</option>
-                      <option value="NY">New York</option>
-                      <option value="NC">North Carolina</option>
-                      <option value="ND">North Dakota</option>
-                      <option value="OH">Ohio</option>
-                      <option value="OK">Oklahoma</option>
-                      <option value="OR">Oregon</option>
-                      <option value="PA">Pennsylvania</option>
-                      <option value="RI">Rhode Island</option>
-                      <option value="SC">South Carolina</option>
-                      <option value="SD">South Dakota</option>
-                      <option value="TN">Tennessee</option>
-                      <option value="TX">Texas</option>
-                      <option value="UT">Utah</option>
-                      <option value="VT">Vermont</option>
-                      <option value="VA">Virginia</option>
-                      <option value="WA">Washington</option>
-                      <option value="WV">West Virginia</option>
-                      <option value="WI">Wisconsin</option>
-                      <option value="WY">Wyoming</option>
-                    </select>
-                  </div>
-
-                  {/* Zip Code */}
-                  <div>
-                    <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
-                      ZIP Code <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="zipCode"
-                      name="zipCode"
-                      value={formData.zipCode}
-                      onChange={handleChange}
-                      required
-                      className="block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Contact Information */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Contact Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Email */}
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                       Email <span className="text-red-500">*</span>
@@ -649,7 +506,6 @@ const ConferenceRegistration: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Phone */}
                   <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                       Phone <span className="text-red-500">*</span>
@@ -672,9 +528,85 @@ const ConferenceRegistration: React.FC = () => {
                 </div>
               </div>
 
-              {/* Number of Attendees */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Registration Details</h3>
+              {/* Address */}
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-secondary mb-6">Address</h2>
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label htmlFor="streetAddress" className="block text-sm font-medium text-gray-700 mb-1">
+                      Street Address <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MapPin className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        id="streetAddress"
+                        name="streetAddress"
+                        value={formData.streetAddress}
+                        onChange={handleChange}
+                        required
+                        className="pl-10 block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                        City <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="city"
+                        name="city"
+                        value={formData.city}
+                        onChange={handleChange}
+                        required
+                        className="block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
+                        State <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="state"
+                        name="state"
+                        value={formData.state}
+                        onChange={handleChange}
+                        required
+                        className="block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
+                      >
+                        <option value="">Select State</option>
+                        <option value="TN">Tennessee</option>
+                        {/* Add other states as needed */}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
+                        ZIP Code <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="zipCode"
+                        name="zipCode"
+                        value={formData.zipCode}
+                        onChange={handleChange}
+                        required
+                        className="block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Attendees */}
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-secondary mb-6">Registration Details</h2>
                 <div>
                   <label htmlFor="totalAttendees" className="block text-sm font-medium text-gray-700 mb-1">
                     Number of Attendees <span className="text-red-500">*</span>
@@ -706,11 +638,11 @@ const ConferenceRegistration: React.FC = () => {
 
               {/* Additional Attendees */}
               {formData.totalAttendees > 1 && (
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-secondary mb-4 border-b pb-2">Additional Attendees</h3>
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-secondary mb-6">Additional Attendees</h2>
                   {formData.additionalAttendees.map((attendee, index) => (
                     <div key={index} className="mb-6 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="text-md font-medium text-gray-700 mb-3">Attendee {index + 2}</h4>
+                      <h3 className="text-lg font-medium text-gray-700 mb-4">Attendee {index + 2}</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -755,7 +687,7 @@ const ConferenceRegistration: React.FC = () => {
               )}
 
               {/* Submit Button */}
-              <div className="mt-8">
+              <div>
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -764,7 +696,7 @@ const ConferenceRegistration: React.FC = () => {
                   {isSubmitting ? (
                     <>
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <circle className="opacity-25" cx="12"cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       Processing...
@@ -776,9 +708,6 @@ const ConferenceRegistration: React.FC = () => {
                     </>
                   )}
                 </button>
-                <p className="mt-3 text-sm text-gray-500 text-center">
-                  * Required Fields
-                </p>
               </div>
             </form>
           </div>

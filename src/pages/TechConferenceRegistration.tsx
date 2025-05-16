@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, DollarSign, Building, User, Users, Calendar, AlertCircle, X } from 'lucide-react';
 
 interface Attendee {
   firstName: string;
@@ -46,6 +46,7 @@ const TechConferenceRegistration: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
+  const [showUnavailablePopup, setShowUnavailablePopup] = useState(false);
 
   useEffect(() => {
     fetchConferenceSettings();
@@ -58,11 +59,17 @@ const TechConferenceRegistration: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching tech conference settings:', error);
         setError('Failed to load conference settings. Please try again later.');
+        setShowUnavailablePopup(true);
+        return;
+      }
+
+      if (!data) {
+        setShowUnavailablePopup(true);
         return;
       }
 
@@ -77,6 +84,7 @@ const TechConferenceRegistration: React.FC = () => {
     } catch (error) {
       console.error('Error:', error);
       setError('An unexpected error occurred. Please try again later.');
+      setShowUnavailablePopup(true);
     } finally {
       setLoading(false);
     }
@@ -146,7 +154,7 @@ const TechConferenceRegistration: React.FC = () => {
     setFormStatus({});
 
     try {
-      // Insert main registration
+      // First insert the main registration
       const { data: registrationData, error: registrationError } = await supabase
         .from('tech_conference_registrations')
         .insert([
@@ -169,7 +177,7 @@ const TechConferenceRegistration: React.FC = () => {
 
       if (registrationError) throw registrationError;
 
-      // Insert additional attendees if any
+      // Then insert additional attendees if any
       if (formData.additionalAttendees.length > 0) {
         const { error: attendeesError } = await supabase
           .from('tech_conference_attendees')
@@ -187,7 +195,7 @@ const TechConferenceRegistration: React.FC = () => {
 
       setFormStatus({
         success: true,
-        message: 'Registration submitted successfully!'
+        message: 'Registration submitted successfully! Please mail your payment as instructed.'
       });
 
       // Reset form
@@ -223,161 +231,168 @@ const TechConferenceRegistration: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
+  return (
+    <div className="pt-16">
+      {/* Unavailable Popup */}
+      {showUnavailablePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
+                <h2 className="text-xl font-bold text-gray-900">Registration Unavailable</h2>
+              </div>
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
+            <p className="text-gray-600 mb-6">
+              Tech Conference registration is not available at this time. Please check back later or contact us for more information.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="pt-16">
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">
-              {conferenceSettings?.name || 'Tech Conference Registration'}
-            </h1>
-            <p className="text-xl text-gray-200 mb-8 fade-in">
-              {conferenceSettings?.description || 'Join us for the latest in educational technology and innovation.'}
-            </p>
+            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Tech Conference Registration</h1>
+            <p className="text-xl text-gray-200 mb-8 fade-in">Register for the {conferenceSettings?.name || 'TAPT Tech Conference'} and join transportation professionals from across Tennessee.</p>
           </div>
         </div>
       </section>
 
       {/* Conference Info */}
-      <section className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="p-8 md:p-10">
-              <h2 className="text-3xl font-bold text-secondary mb-6">
-                {conferenceSettings?.name || 'Tech Conference'}
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div>
-                  <h3 className="text-xl font-semibold text-primary mb-4">Event Details</h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <Calendar className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Date:</span>
-                        <p>
-                          {conferenceSettings ? (
-                            `${new Date(conferenceSettings.start_date).toLocaleDateString()} - ${new Date(conferenceSettings.end_date).toLocaleDateString()}`
-                          ) : 'TBD'}
-                        </p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <MapPin className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Location:</span>
-                        <p>{conferenceSettings?.venue}</p>
-                        <p>{conferenceSettings?.location}</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
+      {!isRegistrationClosed && conferenceSettings && (
+        <section className="py-12 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="p-8 md:p-10">
+                <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Tech Conference'}</h2>
                 
-                <div>
-                  <h3 className="text-xl font-semibold text-primary mb-4">Registration Information</h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <DollarSign className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Registration Fee:</span>
-                        <p>${registrationFee.toFixed(2)} per attendee</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <Mail className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Payment Instructions:</span>
-                        <p>{conferenceSettings?.payment_instructions}</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              {conferenceSettings?.description && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                  <p className="text-gray-700">{conferenceSettings.description}</p>
-                </div>
-              )}
-
-              {/* Registration Deadline Notice */}
-              {conferenceSettings?.registration_end_date && (
-                <div className={`mt-6 p-4 rounded-md ${
-                  isRegistrationClosed 
-                    ? 'bg-red-50 border border-red-200' 
-                    : 'bg-yellow-50 border border-yellow-200'
-                }`}>
-                  <div className="flex items-start">
-                    <AlertCircle className={`h-5 w-5 ${
-                      isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
-                    }`} />
-                    <div className="ml-3">
-                      <h3 className={`text-sm font-medium ${
-                        isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
-                      }`}>
-                        {isRegistrationClosed 
-                          ? 'Registration is closed'
-                          : 'Registration deadline approaching'
-                        }
-                      </h3>
-                      <p className={`mt-1 text-sm ${
-                        isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
-                      }`}>
-                        {isRegistrationClosed
-                          ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                          : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                        }
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                  <div>
+                    <h3 className="text-xl font-semibold text-primary mb-4">Event Details</h3>
+                    <ul className="space-y-4">
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <Calendar className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Date:</span>
+                          <p>{new Date(conferenceSettings?.start_date || '').toLocaleDateString()} - {new Date(conferenceSettings?.end_date || '').toLocaleDateString()}</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <MapPin className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Location:</span>
+                          <p>{conferenceSettings?.venue}</p>
+                          <p>{conferenceSettings?.location}</p>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-xl font-semibold text-primary mb-4">Registration Information</h3>
+                    <ul className="space-y-4">
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <DollarSign className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Registration Fee:</span>
+                          <p>${registrationFee.toFixed(2)} per attendee</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <Mail className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Payment Instructions:</span>
+                          <p>{conferenceSettings?.payment_instructions}</p>
+                        </div>
+                      </li>
+                    </ul>
                   </div>
                 </div>
-              )}
+
+                {conferenceSettings?.description && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-md">
+                    <p className="text-gray-700">{conferenceSettings.description}</p>
+                  </div>
+                )}
+
+                {/* Registration Deadline Notice */}
+                {conferenceSettings?.registration_end_date && (
+                  <div className={`mt-6 p-4 rounded-md ${
+                    isRegistrationClosed 
+                      ? 'bg-red-50 border border-red-200' 
+                      : 'bg-yellow-50 border border-yellow-200'
+                  }`}>
+                    <div className="flex items-start">
+                      <AlertCircle className={`h-5 w-5 ${
+                        isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
+                      }`} />
+                      <div className="ml-3">
+                        <h3 className={`text-sm font-medium ${
+                          isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
+                        }`}>
+                          {isRegistrationClosed 
+                            ? 'Registration is closed'
+                            : 'Registration deadline approaching'
+                          }
+                        </h3>
+                        <p className={`mt-1 text-sm ${
+                          isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
+                        }`}>
+                          {isRegistrationClosed
+                            ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                            : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Registration Form */}
-      {isRegistrationClosed ? (
+      {isRegistrationClosed || !conferenceSettings ? (
         <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
-              <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-red-800 mb-2">Registration is Closed</h2>
-              <p className="text-red-700">
-                The registration deadline for this conference has passed. Please contact us for any inquiries.
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <Calendar className="h-16 w-16 text-primary mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-secondary mb-4">Registration has now closed</h2>
+              <p className="text-gray-600">
+                Thank you for your interest in the TAPT Tech Conference. Registration is currently closed. 
+                Please check back later for future events.
               </p>
             </div>
           </div>
         </section>
       ) : (
-        <section className="py-12">
+        <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             {formStatus.message && (
               <div className={`mb-8 p-4 rounded-md ${formStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
@@ -675,6 +690,7 @@ const TechConferenceRegistration: React.FC = () => {
               <div>
                 <button
                   type="submit"
+                
                   disabled={isSubmitting}
                   className="w-full inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
                 >
@@ -698,7 +714,6 @@ const TechConferenceRegistration: React.FC = () => {
           </div>
         </section>
       )}
-    
     </div>
   );
 };
