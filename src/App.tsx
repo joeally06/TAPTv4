@@ -9,6 +9,8 @@ import { Members } from './pages/Members';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminUsers } from './pages/AdminUsers';
+import { BoardMembers } from './pages/BoardMembers';
+import { AdminBoardMembers } from './pages/AdminBoardMembers';
 import ConferenceRegistration from './pages/ConferenceRegistration';
 import TechConferenceRegistration from './pages/TechConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
@@ -58,6 +60,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
+              <Route path="/board-members" element={<BoardMembers />} />
               <Route path="/resources" element={<Resources />} />
               <Route path="/news" element={<News />} />
               <Route path="/events" element={<Events />} />
@@ -70,6 +73,7 @@ function App() {
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/board-members" element={<AdminBoardMembers />} />
               <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
               <Route path="/admin/tech-conference-registrations" element={<AdminTechConferenceRegistrations />} />
               <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
@@ -82,6 +86,7 @@ function App() {
             </Routes>
           </div>
         </main>
+        
         <Footer />
       </div>
     </Router>
