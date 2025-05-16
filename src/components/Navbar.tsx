@@ -91,6 +91,7 @@ export const Navbar = () => {
       name: 'Hall of Fame',
       path: '/hall-of-fame',
       subItems: [
+        { name: 'Members', path: '/hall-of-fame-members' },
         { name: 'Nomination Form', path: '/hall-of-fame-nomination' }
       ]
     }
@@ -104,6 +105,7 @@ export const Navbar = () => {
     { name: 'Tech Conference Settings', path: '/admin/tech-conference-settings' },
     { name: 'Tech Conference Registrations', path: '/admin/tech-conference-registrations' },
     { name: 'Hall of Fame Settings', path: '/admin/hall-of-fame-settings' },
+    { name: 'Hall of Fame Members', path: '/admin/hall-of-fame-members' },
     { name: 'Hall of Fame Nominations', path: '/admin/hall-of-fame-nominations' }
   ];
 
