@@ -275,105 +275,107 @@ const ConferenceRegistration: React.FC = () => {
       </section>
 
       {/* Conference Info */}
-      <section className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="p-8 md:p-10">
-              <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Annual Conference'}</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div>
-                  <h3 className="text-xl font-semibold text-primary mb-4">Event Details</h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <Calendar className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Date:</span>
-                        <p>{new Date(conferenceSettings?.start_date || '').toLocaleDateString()} - {new Date(conferenceSettings?.end_date || '').toLocaleDateString()}</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <MapPin className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Location:</span>
-                        <p>{conferenceSettings?.venue}</p>
-                        <p>{conferenceSettings?.location}</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
+      {!isRegistrationClosed && conferenceSettings && (
+        <section className="py-12 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="p-8 md:p-10">
+                <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Annual Conference'}</h2>
                 
-                <div>
-                  <h3 className="text-xl font-semibold text-primary mb-4">Registration Information</h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <DollarSign className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Registration Fee:</span>
-                        <p>${registrationFee.toFixed(2)} per attendee</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
-                        <Mail className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <span className="font-medium">Payment Instructions:</span>
-                        <p>{conferenceSettings?.payment_instructions}</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              {conferenceSettings?.description && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                  <p className="text-gray-700">{conferenceSettings.description}</p>
-                </div>
-              )}
-
-              {/* Registration Deadline Notice */}
-              {conferenceSettings?.registration_end_date && (
-                <div className={`mt-6 p-4 rounded-md ${
-                  isRegistrationClosed 
-                    ? 'bg-red-50 border border-red-200' 
-                    : 'bg-yellow-50 border border-yellow-200'
-                }`}>
-                  <div className="flex items-start">
-                    <AlertCircle className={`h-5 w-5 ${
-                      isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
-                    }`} />
-                    <div className="ml-3">
-                      <h3 className={`text-sm font-medium ${
-                        isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
-                      }`}>
-                        {isRegistrationClosed 
-                          ? 'Registration is closed'
-                          : 'Registration deadline approaching'
-                        }
-                      </h3>
-                      <p className={`mt-1 text-sm ${
-                        isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
-                      }`}>
-                        {isRegistrationClosed
-                          ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                          : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                        }
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                  <div>
+                    <h3 className="text-xl font-semibold text-primary mb-4">Event Details</h3>
+                    <ul className="space-y-4">
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <Calendar className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Date:</span>
+                          <p>{new Date(conferenceSettings?.start_date || '').toLocaleDateString()} - {new Date(conferenceSettings?.end_date || '').toLocaleDateString()}</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <MapPin className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Location:</span>
+                          <p>{conferenceSettings?.venue}</p>
+                          <p>{conferenceSettings?.location}</p>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-xl font-semibold text-primary mb-4">Registration Information</h3>
+                    <ul className="space-y-4">
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <DollarSign className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Registration Fee:</span>
+                          <p>${registrationFee.toFixed(2)} per attendee</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="flex-shrink-0 h-6 w-6 text-primary mr-2">
+                          <Mail className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <span className="font-medium">Payment Instructions:</span>
+                          <p>{conferenceSettings?.payment_instructions}</p>
+                        </div>
+                      </li>
+                    </ul>
                   </div>
                 </div>
-              )}
+
+                {conferenceSettings?.description && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-md">
+                    <p className="text-gray-700">{conferenceSettings.description}</p>
+                  </div>
+                )}
+
+                {/* Registration Deadline Notice */}
+                {conferenceSettings?.registration_end_date && (
+                  <div className={`mt-6 p-4 rounded-md ${
+                    isRegistrationClosed 
+                      ? 'bg-red-50 border border-red-200' 
+                      : 'bg-yellow-50 border border-yellow-200'
+                  }`}>
+                    <div className="flex items-start">
+                      <AlertCircle className={`h-5 w-5 ${
+                        isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
+                      }`} />
+                      <div className="ml-3">
+                        <h3 className={`text-sm font-medium ${
+                          isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
+                        }`}>
+                          {isRegistrationClosed 
+                            ? 'Registration is closed'
+                            : 'Registration deadline approaching'
+                          }
+                        </h3>
+                        <p className={`mt-1 text-sm ${
+                          isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
+                        }`}>
+                          {isRegistrationClosed
+                            ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                            : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Registration Form */}
       {isRegistrationClosed || !conferenceSettings ? (
@@ -694,7 +696,7 @@ const ConferenceRegistration: React.FC = () => {
                   {isSubmitting ? (
                     <>
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <circle className="opacity-25" cx="12"cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       Processing...
