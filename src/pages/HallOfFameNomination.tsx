@@ -536,5 +536,3 @@ export const HallOfFameNomination: React.FC = () => {
 };
 
 export default HallOfFameNomination;
-
-export { HallOfFameNomination }
