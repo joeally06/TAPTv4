@@ -10,9 +10,16 @@ import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminUsers } from './pages/AdminUsers';
 import ConferenceRegistration from './pages/ConferenceRegistration';
+import TechConferenceRegistration from './pages/TechConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
+import { AdminTechConferenceRegistrations } from './pages/AdminTechConferenceRegistrations';
 import { AdminConferenceSettings } from './pages/AdminConferenceSettings';
+import { AdminTechConferenceSettings } from './pages/AdminTechConferenceSettings';
+import { AdminHallOfFameSettings } from './pages/AdminHallOfFameSettings';
+import { AdminHallOfFameNominations } from './pages/AdminHallOfFameNominations';
+import { AdminHallOfFameMembers } from './pages/AdminHallOfFameMembers';
 import { HallOfFameNomination } from './pages/HallOfFameNomination';
+import { HallOfFameMembers } from './pages/HallOfFameMembers';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
@@ -57,12 +64,19 @@ function App() {
               <Route path="/members" element={<Members />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/conference-registration" element={<ConferenceRegistration />} />
+              <Route path="/tech-conference-registration" element={<TechConferenceRegistration />} />
               <Route path="/hall-of-fame-nomination" element={<HallOfFameNomination />} />
+              <Route path="/hall-of-fame-members" element={<HallOfFameMembers />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
+              <Route path="/admin/tech-conference-registrations" element={<AdminTechConferenceRegistrations />} />
               <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
+              <Route path="/admin/tech-conference-settings" element={<AdminTechConferenceSettings />} />
+              <Route path="/admin/hall-of-fame-settings" element={<AdminHallOfFameSettings />} />
+              <Route path="/admin/hall-of-fame-nominations" element={<AdminHallOfFameNominations />} />
+              <Route path="/admin/hall-of-fame-members" element={<AdminHallOfFameMembers />} />
               <Route path="/admin/test" element={<AdminTestComponent />} />
               <Route path="/admin/debug" element={<UserDebugComponent />} />
             </Routes>

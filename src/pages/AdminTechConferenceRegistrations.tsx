@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Download, Search, ChevronDown, ChevronUp, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
+import { Download, Search, ChevronDown, ChevronUp, Trash2, Eye, ArrowLeft } from 'lucide-react';
 
-interface Attendee {
+interface TechConferenceAttendee {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
 }
 
-interface ConferenceRegistration {
+interface TechConferenceRegistration {
   id: string;
   school_district: string;
   first_name: string;
@@ -21,20 +20,20 @@ interface ConferenceRegistration {
   total_attendees: number;
   total_amount: number;
   created_at: string;
-  attendees?: Attendee[];
+  attendees?: TechConferenceAttendee[];
 }
 
-export const AdminConferenceRegistrations: React.FC = () => {
+export const AdminTechConferenceRegistrations: React.FC = () => {
   const navigate = useNavigate();
-  const [registrations, setRegistrations] = useState<ConferenceRegistration[]>([]);
+  const [registrations, setRegistrations] = useState<TechConferenceRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<keyof ConferenceRegistration>('created_at');
+  const [sortField, setSortField] = useState<keyof TechConferenceRegistration>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [selectedRegistration, setSelectedRegistration] = useState<ConferenceRegistration | null>(null);
+  const [selectedRegistration, setSelectedRegistration] = useState<TechConferenceRegistration | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
@@ -79,10 +78,10 @@ export const AdminConferenceRegistrations: React.FC = () => {
       setError(null);
 
       const { data, error } = await supabase
-        .from('conference_registrations')
+        .from('tech_conference_registrations')
         .select(`
           *,
-          attendees:conference_attendees(*)
+          attendees:tech_conference_attendees(*)
         `)
         .order(sortField, { ascending: sortDirection === 'asc' });
 
@@ -97,7 +96,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
     }
   };
 
-  const handleSort = (field: keyof ConferenceRegistration) => {
+  const handleSort = (field: keyof TechConferenceRegistration) => {
     if (field === sortField) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -115,7 +114,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('conference_registrations')
+        .from('tech_conference_registrations')
         .delete()
         .eq('id', registrationId);
 
@@ -129,7 +128,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
   };
 
   const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to clear all conference registrations? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to clear all tech conference registrations? This action cannot be undone.')) {
       return;
     }
 
@@ -139,14 +138,14 @@ export const AdminConferenceRegistrations: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('conference_registrations')
+        .from('tech_conference_registrations')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
 
       if (error) throw error;
 
       setRegistrations([]);
-      setSuccess('Conference registrations cleared successfully!');
+      setSuccess('Tech conference registrations cleared successfully!');
     } catch (error: any) {
       console.error('Error clearing registrations:', error);
       setError(`Failed to clear registrations: ${error.message}`);
@@ -195,7 +194,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `conference_registrations_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `tech_conference_registrations_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -211,7 +210,7 @@ export const AdminConferenceRegistrations: React.FC = () => {
     );
   });
 
-  const SortIcon = ({ field }: { field: keyof ConferenceRegistration }) => {
+  const SortIcon = ({ field }: { field: keyof TechConferenceRegistration }) => {
     if (field !== sortField) return null;
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
@@ -229,9 +228,9 @@ export const AdminConferenceRegistrations: React.FC = () => {
               <ArrowLeft className="h-6 w-6 mr-2" />
               Back to Dashboard
             </button>
-            <h1 className="text-3xl font-bold">Conference Registrations</h1>
+            <h1 className="text-3xl font-bold">Tech Conference Registrations</h1>
           </div>
-          <p className="mt-2">Manage and track conference registrations</p>
+          <p className="mt-2">Manage and track tech conference registrations</p>
         </div>
       </section>
 
@@ -345,11 +344,11 @@ export const AdminConferenceRegistrations: React.FC = () => {
                         key={key}
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
-                        onClick={() => handleSort(key as keyof ConferenceRegistration)}
+                        onClick={() => handleSort(key as keyof TechConferenceRegistration)}
                       >
                         <div className="flex items-center">
                           {label}
-                          <SortIcon field={key as keyof ConferenceRegistration} />
+                          <SortIcon field={key as keyof TechConferenceRegistration} />
                         </div>
                       </th>
                     ))}
@@ -496,4 +495,4 @@ export const AdminConferenceRegistrations: React.FC = () => {
   );
 };
 
-export default AdminConferenceRegistrations;
+export default AdminTechConferenceRegistrations;

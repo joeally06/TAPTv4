@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
+import { Lock, Mail, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
-interface ConferenceSettings {
+interface TechConferenceSettings {
   id: string;
   name: string;
   start_date: string;
@@ -17,7 +17,7 @@ interface ConferenceSettings {
   description: string;
 }
 
-export const AdminConferenceSettings: React.FC = () => {
+export const AdminTechConferenceSettings: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,7 +26,7 @@ export const AdminConferenceSettings: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   
-  const [settings, setSettings] = useState<ConferenceSettings>({
+  const [settings, setSettings] = useState<TechConferenceSettings>({
     id: crypto.randomUUID(),
     name: '',
     start_date: '',
@@ -34,7 +34,7 @@ export const AdminConferenceSettings: React.FC = () => {
     registration_end_date: '',
     location: '',
     venue: '',
-    fee: 175.00,
+    fee: 250.00,
     payment_instructions: '',
     description: ''
   });
@@ -97,9 +97,9 @@ export const AdminConferenceSettings: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching conference settings...');
+      console.log('Fetching tech conference settings...');
       const { data, error } = await supabase
-        .from('conference_settings')
+        .from('tech_conference_settings')
         .select('*')
         .order('created_at', { ascending: false })
         .maybeSingle();
@@ -125,7 +125,7 @@ export const AdminConferenceSettings: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error in fetchSettings:', error);
-      setError(`Failed to load conference settings: ${error.message}`);
+      setError(`Failed to load tech conference settings: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -150,7 +150,7 @@ export const AdminConferenceSettings: React.FC = () => {
       console.log('Submitting settings:', settings);
 
       const { error } = await supabase
-        .from('conference_settings')
+        .from('tech_conference_settings')
         .upsert({
           ...settings,
           updated_at: new Date().toISOString()
@@ -162,18 +162,18 @@ export const AdminConferenceSettings: React.FC = () => {
       }
 
       console.log('Settings saved successfully');
-      setSuccess('Conference settings saved successfully!');
+      setSuccess('Tech conference settings saved successfully!');
       await fetchSettings(); // Refresh the data
     } catch (error: any) {
       console.error('Error in handleSubmit:', error);
-      setError(`Failed to save conference settings: ${error.message}`);
+      setError(`Failed to save tech conference settings: ${error.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to clear all conference settings? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to clear all tech conference settings? This action cannot be undone.')) {
       return;
     }
 
@@ -183,13 +183,13 @@ export const AdminConferenceSettings: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('conference_settings')
+        .from('tech_conference_settings')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
 
       if (error) throw error;
 
-      setSuccess('Conference settings cleared successfully!');
+      setSuccess('Tech conference settings cleared successfully!');
       setSettings({
         id: crypto.randomUUID(),
         name: '',
@@ -198,13 +198,13 @@ export const AdminConferenceSettings: React.FC = () => {
         registration_end_date: '',
         location: '',
         venue: '',
-        fee: 175.00,
+        fee: 250.00,
         payment_instructions: '',
         description: ''
       });
     } catch (error: any) {
-      console.error('Error clearing conference settings:', error);
-      setError(`Failed to clear conference settings: ${error.message}`);
+      console.error('Error clearing tech conference settings:', error);
+      setError(`Failed to clear tech conference settings: ${error.message}`);
     } finally {
       setClearing(false);
     }
@@ -230,9 +230,9 @@ export const AdminConferenceSettings: React.FC = () => {
               <ArrowLeft className="h-6 w-6 mr-2" />
               Back to Dashboard
             </button>
-            <h1 className="text-3xl font-bold">Conference Settings</h1>
+            <h1 className="text-3xl font-bold">Tech Conference Settings</h1>
           </div>
-          <p className="mt-2">Manage conference details and registration settings</p>
+          <p className="mt-2">Manage tech conference details and registration settings</p>
         </div>
       </section>
 
@@ -302,7 +302,7 @@ export const AdminConferenceSettings: React.FC = () => {
             ) : (
               <>
                 <Trash2 className="mr-2 h-5 w-5" />
-                Clear Conference Settings
+                Clear Tech Conference Settings
               </>
             )}
           </button>
@@ -363,7 +363,7 @@ export const AdminConferenceSettings: React.FC = () => {
                   </label>
                   <div className="mt-1 relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Calendar className="h-5 w-5 text-gray-400" />
+                      <Clock className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
                       type="date"
@@ -383,7 +383,7 @@ export const AdminConferenceSettings: React.FC = () => {
                   </label>
                   <div className="mt-1 relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Calendar className="h-5 w-5 text-gray-400" />
+                      <Clock className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
                       type="date"
@@ -516,7 +516,7 @@ export const AdminConferenceSettings: React.FC = () => {
                 ) : (
                   <>
                     <Save className="mr-2 h-5 w-5" />
-                    Save Conference Settings
+                    Save Tech Conference Settings
                   </>
                 )}
               </button>
@@ -528,4 +528,4 @@ export const AdminConferenceSettings: React.FC = () => {
   );
 };
 
-export default AdminConferenceSettings;
+export default AdminTechConferenceSettings;

@@ -1,23 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
+import { Calendar, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
-interface ConferenceSettings {
+interface HallOfFameSettings {
   id: string;
   name: string;
   start_date: string;
   end_date: string;
-  registration_end_date: string;
-  location: string;
-  venue: string;
-  fee: number;
-  payment_instructions: string;
   description: string;
+  nomination_instructions: string;
+  eligibility_criteria: string;
 }
 
-export const AdminConferenceSettings: React.FC = () => {
+export const AdminHallOfFameSettings: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,17 +23,14 @@ export const AdminConferenceSettings: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   
-  const [settings, setSettings] = useState<ConferenceSettings>({
+  const [settings, setSettings] = useState<HallOfFameSettings>({
     id: crypto.randomUUID(),
     name: '',
     start_date: '',
     end_date: '',
-    registration_end_date: '',
-    location: '',
-    venue: '',
-    fee: 175.00,
-    payment_instructions: '',
-    description: ''
+    description: '',
+    nomination_instructions: '',
+    eligibility_criteria: ''
   });
 
   useEffect(() => {
@@ -97,9 +91,9 @@ export const AdminConferenceSettings: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching conference settings...');
+      console.log('Fetching hall of fame settings...');
       const { data, error } = await supabase
-        .from('conference_settings')
+        .from('hall_of_fame_settings')
         .select('*')
         .order('created_at', { ascending: false })
         .maybeSingle();
@@ -119,24 +113,22 @@ export const AdminConferenceSettings: React.FC = () => {
         setSettings({
           ...data,
           start_date: data.start_date.split('T')[0],
-          end_date: data.end_date.split('T')[0],
-          registration_end_date: data.registration_end_date.split('T')[0]
+          end_date: data.end_date.split('T')[0]
         });
       }
     } catch (error: any) {
       console.error('Error in fetchSettings:', error);
-      setError(`Failed to load conference settings: ${error.message}`);
+      setError(`Failed to load hall of fame settings: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    
+    const { name, value } = e.target;
     setSettings(prev => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) : value
+      [name]: value
     }));
   };
 
@@ -150,7 +142,7 @@ export const AdminConferenceSettings: React.FC = () => {
       console.log('Submitting settings:', settings);
 
       const { error } = await supabase
-        .from('conference_settings')
+        .from('hall_of_fame_settings')
         .upsert({
           ...settings,
           updated_at: new Date().toISOString()
@@ -162,18 +154,18 @@ export const AdminConferenceSettings: React.FC = () => {
       }
 
       console.log('Settings saved successfully');
-      setSuccess('Conference settings saved successfully!');
+      setSuccess('Hall of Fame settings saved successfully!');
       await fetchSettings(); // Refresh the data
     } catch (error: any) {
       console.error('Error in handleSubmit:', error);
-      setError(`Failed to save conference settings: ${error.message}`);
+      setError(`Failed to save hall of fame settings: ${error.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to clear all conference settings? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to clear all hall of fame settings? This action cannot be undone.')) {
       return;
     }
 
@@ -183,28 +175,25 @@ export const AdminConferenceSettings: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('conference_settings')
+        .from('hall_of_fame_settings')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
 
       if (error) throw error;
 
-      setSuccess('Conference settings cleared successfully!');
+      setSuccess('Hall of Fame settings cleared successfully!');
       setSettings({
         id: crypto.randomUUID(),
         name: '',
         start_date: '',
         end_date: '',
-        registration_end_date: '',
-        location: '',
-        venue: '',
-        fee: 175.00,
-        payment_instructions: '',
-        description: ''
+        description: '',
+        nomination_instructions: '',
+        eligibility_criteria: ''
       });
     } catch (error: any) {
-      console.error('Error clearing conference settings:', error);
-      setError(`Failed to clear conference settings: ${error.message}`);
+      console.error('Error clearing hall of fame settings:', error);
+      setError(`Failed to clear hall of fame settings: ${error.message}`);
     } finally {
       setClearing(false);
     }
@@ -230,9 +219,9 @@ export const AdminConferenceSettings: React.FC = () => {
               <ArrowLeft className="h-6 w-6 mr-2" />
               Back to Dashboard
             </button>
-            <h1 className="text-3xl font-bold">Conference Settings</h1>
+            <h1 className="text-3xl font-bold">Hall of Fame Settings</h1>
           </div>
-          <p className="mt-2">Manage conference details and registration settings</p>
+          <p className="mt-2">Manage Hall of Fame nomination period and requirements</p>
         </div>
       </section>
 
@@ -302,7 +291,7 @@ export const AdminConferenceSettings: React.FC = () => {
             ) : (
               <>
                 <Trash2 className="mr-2 h-5 w-5" />
-                Clear Conference Settings
+                Clear Hall of Fame Settings
               </>
             )}
           </button>
@@ -313,50 +302,27 @@ export const AdminConferenceSettings: React.FC = () => {
             {/* Basic Information */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Basic Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                    Conference Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={settings.name}
-                    onChange={handleChange}
-                    required
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="fee" className="block text-sm font-medium text-gray-700">
-                    Registration Fee ($)
-                  </label>
-                  <div className="mt-1 relative rounded-md shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="number"
-                      id="fee"
-                      name="fee"
-                      value={settings.fee}
-                      onChange={handleChange}
-                      required
-                      min="0"
-                      step="0.01"
-                      className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                    />
-                  </div>
-                </div>
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                  Hall of Fame Year/Title
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={settings.name}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                  placeholder="e.g., 2024 Hall of Fame"
+                />
               </div>
             </div>
 
-            {/* Dates */}
+            {/* Nomination Period */}
             <div>
-              <h2 className="text-xl font-bold text-secondary mb-4">Conference Dates</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <h2 className="text-xl font-bold text-secondary mb-4">Nomination Period</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
                     Start Date
@@ -396,69 +362,6 @@ export const AdminConferenceSettings: React.FC = () => {
                     />
                   </div>
                 </div>
-
-                <div>
-                  <label htmlFor="registration_end_date" className="block text-sm font-medium text-gray-700">
-                    Registration Deadline
-                  </label>
-                  <div className="mt-1 relative rounded-md shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Clock className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="date"
-                      id="registration_end_date"
-                      name="registration_end_date"
-                      value={settings.registration_end_date}
-                      onChange={handleChange}
-                      required
-                      className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Location */}
-            <div>
-              <h2 className="text-xl font-bold text-secondary mb-4">Location Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-                    City/State
-                  </label>
-                  <div className="mt-1 relative rounded-md shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPin className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      id="location"
-                      name="location"
-                      value={settings.location}
-                      onChange={handleChange}
-                      required
-                      className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                      placeholder="e.g., Nashville, TN"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="venue" className="block text-sm font-medium text-gray-700">
-                    Venue Name
-                  </label>
-                  <input
-                    type="text"
-                    id="venue"
-                    name="venue"
-                    value={settings.venue}
-                    onChange={handleChange}
-                    required
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                    placeholder="e.g., Convention Center"
-                  />
-                </div>
               </div>
             </div>
 
@@ -468,7 +371,7 @@ export const AdminConferenceSettings: React.FC = () => {
               
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                  Conference Description
+                  Description
                 </label>
                 <textarea
                   id="description"
@@ -477,23 +380,39 @@ export const AdminConferenceSettings: React.FC = () => {
                   onChange={handleChange}
                   rows={4}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                  placeholder="Describe the conference, its goals, and what attendees can expect..."
+                  placeholder="Describe the Hall of Fame program and its significance..."
                 />
               </div>
 
               <div className="mt-6">
-                <label htmlFor="payment_instructions" className="block text-sm font-medium text-gray-700">
-                  Payment Instructions
+                <label htmlFor="eligibility_criteria" className="block text-sm font-medium text-gray-700">
+                  Eligibility Criteria
                 </label>
                 <textarea
-                  id="payment_instructions"
-                  name="payment_instructions"
-                  value={settings.payment_instructions}
+                  id="eligibility_criteria"
+                  name="eligibility_criteria"
+                  value={settings.eligibility_criteria}
                   onChange={handleChange}
                   rows={4}
                   required
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
-                  placeholder="Provide detailed payment instructions..."
+                  placeholder="List the requirements and criteria for Hall of Fame nominees..."
+                />
+              </div>
+
+              <div className="mt-6">
+                <label htmlFor="nomination_instructions" className="block text-sm font-medium text-gray-700">
+                  Nomination Instructions
+                </label>
+                <textarea
+                  id="nomination_instructions"
+                  name="nomination_instructions"
+                  value={settings.nomination_instructions}
+                  onChange={handleChange}
+                  rows={4}
+                  required
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                  placeholder="Provide detailed instructions for submitting nominations..."
                 />
               </div>
             </div>
@@ -516,7 +435,7 @@ export const AdminConferenceSettings: React.FC = () => {
                 ) : (
                   <>
                     <Save className="mr-2 h-5 w-5" />
-                    Save Conference Settings
+                    Save Hall of Fame Settings
                   </>
                 )}
               </button>
@@ -528,4 +447,4 @@ export const AdminConferenceSettings: React.FC = () => {
   );
 };
 
-export default AdminConferenceSettings;
+export default AdminHallOfFameSettings;
