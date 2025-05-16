@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Download, FileText, Book, FileCheck, Folder } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { 
   RESOURCE_CATEGORIES, 
