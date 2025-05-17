@@ -26,8 +26,6 @@ import { HallOfFameMembers } from './pages/HallOfFameMembers';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import AdminTestComponent from './components/AdminTestComponent';
-import UserDebugComponent from './components/UserDebugComponent';
 import './index.css';
 
 function App() {
@@ -54,43 +52,50 @@ function App() {
 
   return (
     <Router>
-      <div className="flex flex-col min-h-screen bg-gray-50">
-        <Navbar />
-        <main className="flex-grow">
-          <div className="container mx-auto px-4 py-8">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/board-members" element={<BoardMembers />} />
-              <Route path="/resources" element={<Resources />} />
-              <Route path="/news" element={<News />} />
-              <Route path="/events" element={<Events />} />
-              <Route path="/members" element={<Members />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/conference-registration" element={<ConferenceRegistration />} />
-              <Route path="/tech-conference-registration" element={<TechConferenceRegistration />} />
-              <Route path="/hall-of-fame-nomination" element={<HallOfFameNomination />} />
-              <Route path="/hall-of-fame-members" element={<HallOfFameMembers />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/board-members" element={<AdminBoardMembers />} />
-              <Route path="/admin/content" element={<AdminContent />} />
-              <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
-              <Route path="/admin/tech-conference-registrations" element={<AdminTechConferenceRegistrations />} />
-              <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
-              <Route path="/admin/tech-conference-settings" element={<AdminTechConferenceSettings />} />
-              <Route path="/admin/hall-of-fame-settings" element={<AdminHallOfFameSettings />} />
-              <Route path="/admin/hall-of-fame-nominations" element={<AdminHallOfFameNominations />} />
-              <Route path="/admin/hall-of-fame-members" element={<AdminHallOfFameMembers />} />
-              <Route path="/admin/test" element={<AdminTestComponent />} />
-              <Route path="/admin/debug" element={<UserDebugComponent />} />
-            </Routes>
-          </div>
-        </main>
-        
-        <Footer />
-      </div>
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/*"
+          element={
+            <div className="flex flex-col min-h-screen bg-gray-50">
+              <Navbar />
+              <main className="flex-grow">
+                <div className="container mx-auto px-4 py-8">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/about" element={<About />} />
+                    <Route path="/board-members" element={<BoardMembers />} />
+                    <Route path="/resources" element={<Resources />} />
+                    <Route path="/news" element={<News />} />
+                    <Route path="/events" element={<Events />} />
+                    <Route path="/members" element={<Members />} />
+                    <Route path="/contact" element={<Contact />} />
+                    <Route path="/conference-registration" element={<ConferenceRegistration />} />
+                    <Route path="/tech-conference-registration" element={<TechConferenceRegistration />} />
+                    <Route path="/hall-of-fame-nomination" element={<HallOfFameNomination />} />
+                    <Route path="/hall-of-fame-members" element={<HallOfFameMembers />} />
+                  </Routes>
+                </div>
+              </main>
+              <Footer />
+            </div>
+          }
+        />
+
+        {/* Admin Routes */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/board-members" element={<AdminBoardMembers />} />
+        <Route path="/admin/content" element={<AdminContent />} />
+        <Route path="/admin/conference-registrations" element={<AdminConferenceRegistrations />} />
+        <Route path="/admin/tech-conference-registrations" element={<AdminTechConferenceRegistrations />} />
+        <Route path="/admin/conference-settings" element={<AdminConferenceSettings />} />
+        <Route path="/admin/tech-conference-settings" element={<AdminTechConferenceSettings />} />
+        <Route path="/admin/hall-of-fame-settings" element={<AdminHallOfFameSettings />} />
+        <Route path="/admin/hall-of-fame-nominations" element={<AdminHallOfFameNominations />} />
+        <Route path="/admin/hall-of-fame-members" element={<AdminHallOfFameMembers />} />
+      </Routes>
     </Router>
   );
 }
