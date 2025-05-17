@@ -220,22 +220,45 @@ export const AdminConferenceSettings: React.FC = () => {
       setIsRollingOver(true);
       setError(null);
 
-      // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No active session');
+      // Validate Supabase URL
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('VITE_SUPABASE_URL is not defined in the environment');
+      }
 
-      // Prepare new settings with updated dates
+      try {
+        new URL(supabaseUrl);
+      } catch (e) {
+        throw new Error('VITE_SUPABASE_URL is invalid');
+      }
+
+      // Get current session and validate
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      
+      if (!session || !session.access_token) {
+        throw new Error('No active session or access token is missing');
+      }
+
+      // Validate dates
+      if (!settings.start_date || !settings.end_date || !settings.registration_end_date) {
+        throw new Error('Please set all required dates before rolling over');
+      }
+
+      // Prepare new settings
       const newSettings = {
         ...settings,
         id: crypto.randomUUID(),
-        start_date: '', // These will be set in the modal
-        end_date: '',
-        registration_end_date: '',
+        start_date: settings.start_date,
+        end_date: settings.end_date,
+        registration_end_date: settings.registration_end_date,
       };
+
+      console.log('Rolling over with settings:', newSettings);
 
       // Call rollover function
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rollover`,
+        `${supabaseUrl}/functions/v1/rollover`,
         {
           method: 'POST',
           headers: {
@@ -250,12 +273,18 @@ export const AdminConferenceSettings: React.FC = () => {
       );
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to rollover conference');
+        console.error(`Rollover failed with status ${response.status}: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to rollover conference: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to rollover conference');
       }
 
       setSuccess('Conference rolled over successfully! Previous registrations have been archived.');
-      fetchSettings(); // Refresh settings
+      await fetchSettings(); // Refresh settings
     } catch (error: any) {
       console.error('Error rolling over conference:', error);
       setError(`Failed to rollover conference: ${error.message}`);
