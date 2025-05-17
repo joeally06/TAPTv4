@@ -155,9 +155,20 @@ Deno.serve(async (req) => {
             if (attendeesArchiveError) throw attendeesArchiveError;
           }
 
-          // Delete original records
-          await supabaseAdmin.from('conference_attendees').delete().neq('id', '');
-          await supabaseAdmin.from('conference_registrations').delete().neq('id', '');
+          // Delete all records from the original tables
+          const { error: deleteAttendeesError } = await supabaseAdmin
+            .from('conference_attendees')
+            .delete()
+            .not('id', 'is', null);
+
+          if (deleteAttendeesError) throw deleteAttendeesError;
+
+          const { error: deleteRegistrationsError } = await supabaseAdmin
+            .from('conference_registrations')
+            .delete()
+            .not('id', 'is', null);
+
+          if (deleteRegistrationsError) throw deleteRegistrationsError;
         }
 
         // Update settings
@@ -220,9 +231,20 @@ Deno.serve(async (req) => {
             if (attendeesArchiveError) throw attendeesArchiveError;
           }
 
-          // Delete original records
-          await supabaseAdmin.from('tech_conference_attendees').delete().neq('id', '');
-          await supabaseAdmin.from('tech_conference_registrations').delete().neq('id', '');
+          // Delete all records from the original tables
+          const { error: deleteAttendeesError } = await supabaseAdmin
+            .from('tech_conference_attendees')
+            .delete()
+            .not('id', 'is', null);
+
+          if (deleteAttendeesError) throw deleteAttendeesError;
+
+          const { error: deleteRegistrationsError } = await supabaseAdmin
+            .from('tech_conference_registrations')
+            .delete()
+            .not('id', 'is', null);
+
+          if (deleteRegistrationsError) throw deleteRegistrationsError;
         }
 
         // Update settings
@@ -263,8 +285,13 @@ Deno.serve(async (req) => {
 
           if (archiveError) throw archiveError;
 
-          // Delete original records
-          await supabaseAdmin.from('hall_of_fame_nominations').delete().neq('id', '');
+          // Delete all records from the original table
+          const { error: deleteNominationsError } = await supabaseAdmin
+            .from('hall_of_fame_nominations')
+            .delete()
+            .not('id', 'is', null);
+
+          if (deleteNominationsError) throw deleteNominationsError;
         }
 
         // Update settings
