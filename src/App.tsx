@@ -1,4 +1,11 @@
-```tsx
-// Add the Archives route to the admin routes section
-<Route path="/admin/archives" element={<AdminArchives />} />
-```
+import React from 'react';
+import { Route } from 'react-router-dom';
+import AdminArchives from './pages/AdminArchives';
+
+function App() {
+  return (
+    <Route path="/admin/archives" element={<AdminArchives />} />
+  );
+}
+
+export default App;
