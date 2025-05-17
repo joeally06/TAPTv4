@@ -1,4 +1,3 @@
-```tsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -272,4 +271,3 @@ export const AdminArchives: React.FC = () => {
 };
 
 export default AdminArchives;
-```
