@@ -175,7 +175,7 @@ export const About: React.FC = () => {
           </div>
           
           <div className="text-center mt-10">
-            <Link to="/about/full-board" className="text-primary font-medium inline-flex items-center hover:underline">
+            <Link to="/BoardMembers" className="text-primary font-medium inline-flex items-center hover:underline">
               See Full Board of Directors
             </Link>
           </div>
