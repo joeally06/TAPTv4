@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
 import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
 interface ConferenceSettings {
@@ -15,6 +15,7 @@ interface ConferenceSettings {
   fee: number;
   payment_instructions: string;
   description: string;
+  is_active: boolean;
 }
 
 export const AdminConferenceSettings: React.FC = () => {
@@ -25,6 +26,8 @@ export const AdminConferenceSettings: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [showRolloverModal, setShowRolloverModal] = useState(false);
+  const [isRollingOver, setIsRollingOver] = useState(false);
   
   const [settings, setSettings] = useState<ConferenceSettings>({
     id: crypto.randomUUID(),
@@ -36,7 +39,8 @@ export const AdminConferenceSettings: React.FC = () => {
     venue: '',
     fee: 175.00,
     payment_instructions: '',
-    description: ''
+    description: '',
+    is_active: true
   });
 
   useEffect(() => {
@@ -200,13 +204,64 @@ export const AdminConferenceSettings: React.FC = () => {
         venue: '',
         fee: 175.00,
         payment_instructions: '',
-        description: ''
+        description: '',
+        is_active: true
       });
     } catch (error: any) {
       console.error('Error clearing conference settings:', error);
       setError(`Failed to clear conference settings: ${error.message}`);
     } finally {
       setClearing(false);
+    }
+  };
+
+  const handleRollover = async () => {
+    try {
+      setIsRollingOver(true);
+      setError(null);
+
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      // Prepare new settings with updated dates
+      const newSettings = {
+        ...settings,
+        id: crypto.randomUUID(),
+        start_date: '', // These will be set in the modal
+        end_date: '',
+        registration_end_date: '',
+      };
+
+      // Call rollover function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rollover`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'conference',
+            settings: newSettings,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to rollover conference');
+      }
+
+      setSuccess('Conference rolled over successfully! Previous registrations have been archived.');
+      fetchSettings(); // Refresh settings
+    } catch (error: any) {
+      console.error('Error rolling over conference:', error);
+      setError(`Failed to rollover conference: ${error.message}`);
+    } finally {
+      setIsRollingOver(false);
+      setShowRolloverModal(false);
     }
   };
 
@@ -285,7 +340,7 @@ export const AdminConferenceSettings: React.FC = () => {
           </div>
         )}
 
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between">
           <button
             onClick={handleClearTable}
             disabled={clearing}
@@ -302,9 +357,17 @@ export const AdminConferenceSettings: React.FC = () => {
             ) : (
               <>
                 <Trash2 className="mr-2 h-5 w-5" />
-                Clear Conference Settings
+                Clear Settings
               </>
             )}
+          </button>
+
+          <button
+            onClick={() => setShowRolloverModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          >
+            <Archive className="mr-2 h-5 w-5" />
+            Rollover Conference
           </button>
         </div>
 
@@ -523,6 +586,72 @@ export const AdminConferenceSettings: React.FC = () => {
             </div>
           </div>
         </form>
+
+        {/* Rollover Modal */}
+        {showRolloverModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Rollover Conference</h2>
+              <p className="text-gray-600 mb-6">
+                This will archive all current registrations and create a new conference period. Are you sure you want to continue?
+              </p>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">New Start Date</label>
+                  <input
+                    type="date"
+                    value={settings.start_date}
+                    onChange={(e) => setSettings({ ...settings, start_date: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">New End Date</label>
+                  <input
+                    type="date"
+                    value={settings.end_date}
+                    onChange={(e) => setSettings({ ...settings, end_date: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">New Registration Deadline</label>
+                  <input
+                    type="date"
+                    value={settings.registration_end_date}
+                    onChange={(e) => setSettings({ ...settings, registration_end_date: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowRolloverModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRollover}
+                  disabled={isRollingOver}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {isRollingOver ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Rolling Over...
+                    </>
+                  ) : (
+                    'Confirm Rollover'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
