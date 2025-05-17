@@ -14,18 +14,19 @@ import {
   X,
   Upload
 } from 'lucide-react';
+import { NEWS_CATEGORIES } from '../lib/types/news';
 
 interface ContentItem {
   id: string;
   title: string;
   description: string;
-  image_url?: string;
-  date?: string;
   type: 'event' | 'announcement' | 'resource' | 'news';
   status: 'draft' | 'published';
-  featured?: boolean;
-  category?: string;
-  link?: string;
+  featured: boolean;
+  image_url: string | null;
+  date: string | null;
+  category: string | null;
+  link: string | null;
 }
 
 interface ResourceItem {
@@ -55,9 +56,10 @@ export const AdminContent: React.FC = () => {
   const [formData, setFormData] = useState<Partial<ContentItem>>({
     title: '',
     description: '',
-    type: 'event',
+    type: selectedType,
     status: 'draft',
-    featured: false
+    featured: false,
+    category: null
   });
 
   useEffect(() => {
@@ -232,7 +234,8 @@ export const AdminContent: React.FC = () => {
         description: '',
         type: selectedType,
         status: 'draft',
-        featured: false
+        featured: false,
+        category: null
       });
     } catch (error: any) {
       console.error('Error saving content:', error);
@@ -356,7 +359,8 @@ export const AdminContent: React.FC = () => {
                 description: '',
                 type: selectedType,
                 status: 'draft',
-                featured: false
+                featured: false,
+                category: selectedType === 'news' ? NEWS_CATEGORIES[1].id : null
               });
               setShowForm(!showForm);
             }}
@@ -416,7 +420,7 @@ export const AdminContent: React.FC = () => {
                       Category
                     </label>
                     <select
-                      value={formData.category}
+                      value={formData.category || ''}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       required
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
@@ -449,19 +453,38 @@ export const AdminContent: React.FC = () => {
                 </>
               ) : (
                 <>
-                  {selectedType !== 'resource' && (
+                  {selectedType === 'news' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Image
+                        Category
                       </label>
-                      <input
-                        type="file"
-                        onChange={handleFileSelect}
-                        accept="image/*"
-                        className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                      />
+                      <select
+                        value={formData.category || ''}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        required
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      >
+                        <option value="">Select Category</option>
+                        {NEWS_CATEGORIES.slice(1).map(category => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Image
+                    </label>
+                    <input
+                      type="file"
+                      onChange={handleFileSelect}
+                      accept="image/*"
+                      className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                    />
+                  </div>
 
                   {selectedType === 'event' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -471,7 +494,7 @@ export const AdminContent: React.FC = () => {
                         </label>
                         <input
                           type="date"
-                          value={formData.date}
+                          value={formData.date || ''}
                           onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
                         />
@@ -482,7 +505,7 @@ export const AdminContent: React.FC = () => {
                         </label>
                         <input
                           type="url"
-                          value={formData.link}
+                          value={formData.link || ''}
                           onChange={(e) => setFormData({ ...formData, link: e.target.value })}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
                         />
@@ -533,7 +556,7 @@ export const AdminContent: React.FC = () => {
                   type="submit"
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90"
                 >
-                  <Save className="h-5 w-5 mr-2 inline-block" />
+                  <Save className="mr-2 h-5 w-5 inline-block" />
                   {editingItem ? 'Update' : 'Save'}
                 </button>
               </div>
@@ -544,9 +567,9 @@ export const AdminContent: React.FC = () => {
         {/* Content List */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           {loading ? (
-            <div className="p-6 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-gray-500">Loading content...</p>
+            <div className="p-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+              <p className="mt-2 text-gray-600">Loading content...</p>
             </div>
           ) : selectedType === 'resource' ? (
             <div className="overflow-x-auto">
@@ -614,6 +637,11 @@ export const AdminContent: React.FC = () => {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Title
                     </th>
+                    {selectedType === 'news' && (
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                    )}
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
@@ -643,6 +671,13 @@ export const AdminContent: React.FC = () => {
                           <div className="text-sm font-medium text-gray-900">{item.title}</div>
                         </div>
                       </td>
+                      {selectedType === 'news' && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {NEWS_CATEGORIES.find(cat => cat.id === item.category)?.name || item.category}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           item.status === 'published'
