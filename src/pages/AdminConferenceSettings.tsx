@@ -105,7 +105,7 @@ export const AdminConferenceSettings: React.FC = () => {
       const { data, error } = await supabase
         .from('conference_settings')
         .select('*')
-        .order('created_at', { ascending: false })
+        .eq('is_active', true)
         .maybeSingle();
 
       if (error) {
