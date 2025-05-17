@@ -62,74 +62,179 @@ Deno.serve(async (req) => {
     // Get request body
     const { type, settings }: RolloverRequest = await req.json();
 
-    // Start transaction
-    const { data: client } = await supabaseAdmin.rpc('begin_transaction');
+    let archiveId: string | null = null;
 
-    try {
-      let archiveId: string;
+    // Archive current data based on type
+    switch (type) {
+      case 'conference': {
+        // Get current registrations
+        const { data: registrations } = await supabaseAdmin
+          .from('conference_registrations')
+          .select('*');
 
-      // Archive current data based on type
-      switch (type) {
-        case 'conference':
-          archiveId = await supabaseAdmin.rpc('archive_conference_registrations');
-          // Set all existing settings to inactive
-          await supabaseAdmin
-            .from('conference_settings')
-            .update({ is_active: false })
-            .neq('id', '00000000-0000-0000-0000-000000000000');
-          // Insert new settings
-          await supabaseAdmin
-            .from('conference_settings')
-            .insert({ ...settings, is_active: true });
-          break;
+        if (registrations && registrations.length > 0) {
+          // Insert into archive
+          const { data: archiveData, error: archiveError } = await supabaseAdmin
+            .from('conference_registrations_archive')
+            .insert(
+              registrations.map(reg => ({
+                ...reg,
+                archived_at: new Date().toISOString(),
+                archive_id: archiveId = crypto.randomUUID()
+              }))
+            );
 
-        case 'tech-conference':
-          archiveId = await supabaseAdmin.rpc('archive_tech_conference_registrations');
-          await supabaseAdmin
-            .from('tech_conference_settings')
-            .update({ is_active: false })
-            .neq('id', '00000000-0000-0000-0000-000000000000');
-          await supabaseAdmin
-            .from('tech_conference_settings')
-            .insert({ ...settings, is_active: true });
-          break;
+          if (archiveError) throw archiveError;
 
-        case 'hall-of-fame':
-          archiveId = await supabaseAdmin.rpc('archive_hall_of_fame_nominations');
-          await supabaseAdmin
-            .from('hall_of_fame_settings')
-            .update({ is_active: false })
-            .neq('id', '00000000-0000-0000-0000-000000000000');
-          await supabaseAdmin
-            .from('hall_of_fame_settings')
-            .insert({ ...settings, is_active: true });
-          break;
+          // Get attendees
+          const { data: attendees } = await supabaseAdmin
+            .from('conference_attendees')
+            .select('*');
 
-        default:
-          throw new Error('Invalid rollover type');
+          if (attendees && attendees.length > 0) {
+            // Archive attendees
+            const { error: attendeesArchiveError } = await supabaseAdmin
+              .from('conference_attendees_archive')
+              .insert(
+                attendees.map(att => ({
+                  ...att,
+                  archived_at: new Date().toISOString(),
+                  archive_id: archiveId
+                }))
+              );
+
+            if (attendeesArchiveError) throw attendeesArchiveError;
+          }
+
+          // Delete original records
+          await supabaseAdmin.from('conference_attendees').delete().neq('id', '');
+          await supabaseAdmin.from('conference_registrations').delete().neq('id', '');
+        }
+
+        // Update settings
+        await supabaseAdmin
+          .from('conference_settings')
+          .update({ is_active: false })
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        await supabaseAdmin
+          .from('conference_settings')
+          .insert({ ...settings, is_active: true });
+
+        break;
       }
 
-      // Commit transaction
-      await supabaseAdmin.rpc('commit_transaction');
+      case 'tech-conference': {
+        // Get current registrations
+        const { data: registrations } = await supabaseAdmin
+          .from('tech_conference_registrations')
+          .select('*');
 
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          archiveId
-        }),
-        { 
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
+        if (registrations && registrations.length > 0) {
+          // Insert into archive
+          const { data: archiveData, error: archiveError } = await supabaseAdmin
+            .from('tech_conference_registrations_archive')
+            .insert(
+              registrations.map(reg => ({
+                ...reg,
+                archived_at: new Date().toISOString(),
+                archive_id: archiveId = crypto.randomUUID()
+              }))
+            );
+
+          if (archiveError) throw archiveError;
+
+          // Get attendees
+          const { data: attendees } = await supabaseAdmin
+            .from('tech_conference_attendees')
+            .select('*');
+
+          if (attendees && attendees.length > 0) {
+            // Archive attendees
+            const { error: attendeesArchiveError } = await supabaseAdmin
+              .from('tech_conference_attendees_archive')
+              .insert(
+                attendees.map(att => ({
+                  ...att,
+                  archived_at: new Date().toISOString(),
+                  archive_id: archiveId
+                }))
+              );
+
+            if (attendeesArchiveError) throw attendeesArchiveError;
+          }
+
+          // Delete original records
+          await supabaseAdmin.from('tech_conference_attendees').delete().neq('id', '');
+          await supabaseAdmin.from('tech_conference_registrations').delete().neq('id', '');
         }
-      );
 
-    } catch (error) {
-      // Rollback transaction on error
-      await supabaseAdmin.rpc('rollback_transaction');
-      throw error;
+        // Update settings
+        await supabaseAdmin
+          .from('tech_conference_settings')
+          .update({ is_active: false })
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        await supabaseAdmin
+          .from('tech_conference_settings')
+          .insert({ ...settings, is_active: true });
+
+        break;
+      }
+
+      case 'hall-of-fame': {
+        // Get current nominations
+        const { data: nominations } = await supabaseAdmin
+          .from('hall_of_fame_nominations')
+          .select('*');
+
+        if (nominations && nominations.length > 0) {
+          // Insert into archive
+          const { data: archiveData, error: archiveError } = await supabaseAdmin
+            .from('hall_of_fame_nominations_archive')
+            .insert(
+              nominations.map(nom => ({
+                ...nom,
+                archived_at: new Date().toISOString(),
+                archive_id: archiveId = crypto.randomUUID()
+              }))
+            );
+
+          if (archiveError) throw archiveError;
+
+          // Delete original records
+          await supabaseAdmin.from('hall_of_fame_nominations').delete().neq('id', '');
+        }
+
+        // Update settings
+        await supabaseAdmin
+          .from('hall_of_fame_settings')
+          .update({ is_active: false })
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        await supabaseAdmin
+          .from('hall_of_fame_settings')
+          .insert({ ...settings, is_active: true });
+
+        break;
+      }
+
+      default:
+        throw new Error('Invalid rollover type');
     }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        archiveId
+      }),
+      { 
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
   } catch (error) {
     console.error('Error:', error.message);
