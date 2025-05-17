@@ -62,6 +62,48 @@ Deno.serve(async (req) => {
     // Get request body
     const { type, settings }: RolloverRequest = await req.json();
 
+    // Extract year from settings
+    const settingsYear = new Date(settings.start_date).getFullYear();
+    
+    // Check for existing archive based on type
+    let existingArchiveQuery;
+    switch (type) {
+      case 'conference':
+        existingArchiveQuery = await supabaseAdmin
+          .from('conference_registrations_archive')
+          .select('archived_at')
+          .gte('archived_at', `${settingsYear}-01-01`)
+          .lte('archived_at', `${settingsYear}-12-31`)
+          .limit(1);
+        break;
+      case 'tech-conference':
+        existingArchiveQuery = await supabaseAdmin
+          .from('tech_conference_registrations_archive')
+          .select('archived_at')
+          .gte('archived_at', `${settingsYear}-01-01`)
+          .lte('archived_at', `${settingsYear}-12-31`)
+          .limit(1);
+        break;
+      case 'hall-of-fame':
+        existingArchiveQuery = await supabaseAdmin
+          .from('hall_of_fame_nominations_archive')
+          .select('archived_at')
+          .gte('archived_at', `${settingsYear}-01-01`)
+          .lte('archived_at', `${settingsYear}-12-31`)
+          .limit(1);
+        break;
+      default:
+        throw new Error('Invalid rollover type');
+    }
+
+    if (existingArchiveQuery.error) {
+      throw existingArchiveQuery.error;
+    }
+
+    if (existingArchiveQuery.data && existingArchiveQuery.data.length > 0) {
+      throw new Error(`A rollover for year ${settingsYear} has already been performed`);
+    }
+
     let archiveId: string | null = null;
 
     // Archive current data based on type
@@ -73,16 +115,21 @@ Deno.serve(async (req) => {
           .select('*');
 
         if (registrations && registrations.length > 0) {
-          // Insert into archive
-          const { data: archiveData, error: archiveError } = await supabaseAdmin
+          // Generate new archive ID
+          archiveId = crypto.randomUUID();
+
+          // Insert into archive with new IDs
+          const archiveData = registrations.map(reg => ({
+            ...reg,
+            id: crypto.randomUUID(),
+            original_id: reg.id,
+            archived_at: new Date().toISOString(),
+            archive_id: archiveId
+          }));
+
+          const { error: archiveError } = await supabaseAdmin
             .from('conference_registrations_archive')
-            .insert(
-              registrations.map(reg => ({
-                ...reg,
-                archived_at: new Date().toISOString(),
-                archive_id: archiveId = crypto.randomUUID()
-              }))
-            );
+            .insert(archiveData);
 
           if (archiveError) throw archiveError;
 
@@ -92,16 +139,18 @@ Deno.serve(async (req) => {
             .select('*');
 
           if (attendees && attendees.length > 0) {
-            // Archive attendees
+            // Archive attendees with new IDs
+            const attendeeArchiveData = attendees.map(att => ({
+              ...att,
+              id: crypto.randomUUID(),
+              original_id: att.id,
+              archived_at: new Date().toISOString(),
+              archive_id: archiveId
+            }));
+
             const { error: attendeesArchiveError } = await supabaseAdmin
               .from('conference_attendees_archive')
-              .insert(
-                attendees.map(att => ({
-                  ...att,
-                  archived_at: new Date().toISOString(),
-                  archive_id: archiveId
-                }))
-              );
+              .insert(attendeeArchiveData);
 
             if (attendeesArchiveError) throw attendeesArchiveError;
           }
@@ -131,16 +180,21 @@ Deno.serve(async (req) => {
           .select('*');
 
         if (registrations && registrations.length > 0) {
-          // Insert into archive
-          const { data: archiveData, error: archiveError } = await supabaseAdmin
+          // Generate new archive ID
+          archiveId = crypto.randomUUID();
+
+          // Insert into archive with new IDs
+          const archiveData = registrations.map(reg => ({
+            ...reg,
+            id: crypto.randomUUID(),
+            original_id: reg.id,
+            archived_at: new Date().toISOString(),
+            archive_id: archiveId
+          }));
+
+          const { error: archiveError } = await supabaseAdmin
             .from('tech_conference_registrations_archive')
-            .insert(
-              registrations.map(reg => ({
-                ...reg,
-                archived_at: new Date().toISOString(),
-                archive_id: archiveId = crypto.randomUUID()
-              }))
-            );
+            .insert(archiveData);
 
           if (archiveError) throw archiveError;
 
@@ -150,16 +204,18 @@ Deno.serve(async (req) => {
             .select('*');
 
           if (attendees && attendees.length > 0) {
-            // Archive attendees
+            // Archive attendees with new IDs
+            const attendeeArchiveData = attendees.map(att => ({
+              ...att,
+              id: crypto.randomUUID(),
+              original_id: att.id,
+              archived_at: new Date().toISOString(),
+              archive_id: archiveId
+            }));
+
             const { error: attendeesArchiveError } = await supabaseAdmin
               .from('tech_conference_attendees_archive')
-              .insert(
-                attendees.map(att => ({
-                  ...att,
-                  archived_at: new Date().toISOString(),
-                  archive_id: archiveId
-                }))
-              );
+              .insert(attendeeArchiveData);
 
             if (attendeesArchiveError) throw attendeesArchiveError;
           }
@@ -189,16 +245,21 @@ Deno.serve(async (req) => {
           .select('*');
 
         if (nominations && nominations.length > 0) {
-          // Insert into archive
-          const { data: archiveData, error: archiveError } = await supabaseAdmin
+          // Generate new archive ID
+          archiveId = crypto.randomUUID();
+
+          // Insert into archive with new IDs
+          const archiveData = nominations.map(nom => ({
+            ...nom,
+            id: crypto.randomUUID(),
+            original_id: nom.id,
+            archived_at: new Date().toISOString(),
+            archive_id: archiveId
+          }));
+
+          const { error: archiveError } = await supabaseAdmin
             .from('hall_of_fame_nominations_archive')
-            .insert(
-              nominations.map(nom => ({
-                ...nom,
-                archived_at: new Date().toISOString(),
-                archive_id: archiveId = crypto.randomUUID()
-              }))
-            );
+            .insert(archiveData);
 
           if (archiveError) throw archiveError;
 
