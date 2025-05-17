@@ -37,7 +37,7 @@ export const AdminConferenceSettings: React.FC = () => {
     registration_end_date: '',
     location: '',
     venue: '',
-    fee: 175.00,
+    fee: '',
     payment_instructions: '',
     description: '',
     is_active: true
