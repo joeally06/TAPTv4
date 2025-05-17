@@ -9,7 +9,8 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
