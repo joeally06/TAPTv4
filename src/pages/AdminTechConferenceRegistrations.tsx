@@ -32,13 +32,127 @@ const AdminTechConferenceRegistrations: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<keyof TechConferenceRegistration>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [selectedRegistration, setSelectedRegistration] = useState<TechConferenceRegistration | null>(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
 
-  // ... rest of your existing code ...
+  useEffect(() => {
+    fetchRegistrations();
+  }, []);
+
+  const fetchRegistrations = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('tech_conference_registrations')
+        .select(`
+          *,
+          attendees:tech_conference_attendees(*)
+        `);
+
+      if (error) throw error;
+      setRegistrations(data || []);
+    } catch (error: any) {
+      console.error('Error fetching registrations:', error);
+      setError('Failed to load registrations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleClearTable = async () => {
+    if (!confirm('Are you sure you want to clear all tech conference registrations? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setClearing(true);
+      setError(null);
+      setSuccess(null);
+
+      // First delete all attendees
+      const { error: attendeesError } = await supabase
+        .from('tech_conference_attendees')
+        .delete()
+        .not('id', 'is', null);
+
+      if (attendeesError) throw attendeesError;
+
+      // Then delete all registrations
+      const { error: registrationsError } = await supabase
+        .from('tech_conference_registrations')
+        .delete()
+        .not('id', 'is', null);
+
+      if (registrationsError) throw registrationsError;
+
+      setSuccess('Tech conference registrations cleared successfully!');
+      setRegistrations([]);
+    } catch (error: any) {
+      console.error('Error clearing registrations:', error);
+      setError(`Failed to clear registrations: ${error.message}`);
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    if (!registrations.length) return;
+
+    const headers = [
+      'Registration Date',
+      'School District',
+      'Primary Contact',
+      'Email',
+      'Phone',
+      'Total Attendees',
+      'Total Amount',
+      'Additional Attendees'
+    ];
+
+    const csvData = registrations.map(reg => {
+      const additionalAttendees = reg.attendees
+        ? reg.attendees.map(a => `${a.first_name} ${a.last_name} (${a.email})`).join('; ')
+        : '';
+
+      return [
+        new Date(reg.created_at).toLocaleDateString(),
+        reg.school_district,
+        `${reg.first_name} ${reg.last_name}`,
+        reg.email,
+        reg.phone,
+        reg.total_attendees,
+        `$${reg.total_amount.toFixed(2)}`,
+        additionalAttendees
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `tech-conference-registrations-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredRegistrations = registrations.filter(reg => {
+    const searchStr = searchTerm.toLowerCase();
+    return (
+      reg.school_district.toLowerCase().includes(searchStr) ||
+      reg.first_name.toLowerCase().includes(searchStr) ||
+      reg.last_name.toLowerCase().includes(searchStr) ||
+      reg.email.toLowerCase().includes(searchStr)
+    );
+  });
 
   return (
     <div className="pt-16">
@@ -61,6 +175,18 @@ const AdminTechConferenceRegistrations: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-6 bg-green-50 border-l-4 border-green-400 p-4">
+            <p className="text-green-700">{success}</p>
+          </div>
+        )}
+
         {/* Controls */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative flex-1 max-w-md">
@@ -113,7 +239,86 @@ const AdminTechConferenceRegistrations: React.FC = () => {
           </div>
         </div>
 
-        {/* ... rest of your existing JSX ... */}
+        {/* Registrations Table */}
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+              <p className="mt-2 text-gray-600">Loading registrations...</p>
+            </div>
+          ) : filteredRegistrations.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-gray-500">No registrations found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Registration Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      School District
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Primary Contact
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Attendees
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredRegistrations.map((registration) => (
+                    <tr key={registration.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(registration.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {registration.school_district}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {registration.first_name} {registration.last_name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {registration.email}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {registration.total_attendees}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${registration.total_amount.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => {/* View details */}}
+                          className="text-primary hover:text-primary/80 mr-3"
+                        >
+                          <Eye className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => {/* Delete registration */}}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         <ArchiveViewerModal
           isOpen={showArchiveModal}
