@@ -17,7 +17,7 @@ import { AdminArchives } from './pages/AdminArchives';
 import ConferenceRegistration from './pages/ConferenceRegistration';
 import TechConferenceRegistration from './pages/TechConferenceRegistration';
 import { AdminConferenceRegistrations } from './pages/AdminConferenceRegistrations';
-import { AdminTechConferenceRegistrations } from './pages/AdminTechConferenceRegistrations';
+import AdminTechConferenceRegistrations from './pages/AdminTechConferenceRegistrations';
 import { AdminConferenceSettings } from './pages/AdminConferenceSettings';
 import { AdminTechConferenceSettings } from './pages/AdminTechConferenceSettings';
 import { AdminHallOfFameSettings } from './pages/AdminHallOfFameSettings';
