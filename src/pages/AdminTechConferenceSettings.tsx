@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
-import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
 interface TechConferenceSettings {
   id: string;
@@ -15,6 +14,7 @@ interface TechConferenceSettings {
   fee: number;
   payment_instructions: string;
   description: string;
+  is_active: boolean;
 }
 
 export const AdminTechConferenceSettings: React.FC = () => {
@@ -24,7 +24,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
   
   const [settings, setSettings] = useState<TechConferenceSettings>({
     id: crypto.randomUUID(),
@@ -36,7 +35,8 @@ export const AdminTechConferenceSettings: React.FC = () => {
     venue: '',
     fee: 250.00,
     payment_instructions: '',
-    description: ''
+    description: '',
+    is_active: true
   });
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
       const { data, error } = await supabase
         .from('tech_conference_settings')
         .select('*')
-        .order('created_at', { ascending: false })
+        .eq('is_active', true)
         .maybeSingle();
 
       if (error) {
@@ -110,17 +110,14 @@ export const AdminTechConferenceSettings: React.FC = () => {
       }
 
       console.log('Settings data:', data);
-      setDebugInfo({
-        timestamp: new Date().toISOString(),
-        data: data
-      });
 
       if (data) {
         setSettings({
           ...data,
           start_date: data.start_date.split('T')[0],
           end_date: data.end_date.split('T')[0],
-          registration_end_date: data.registration_end_date.split('T')[0]
+          registration_end_date: data.registration_end_date.split('T')[0],
+          is_active: data.is_active
         });
       }
     } catch (error: any) {
@@ -200,7 +197,8 @@ export const AdminTechConferenceSettings: React.FC = () => {
         venue: '',
         fee: 250.00,
         payment_instructions: '',
-        description: ''
+        description: '',
+        is_active: true
       });
     } catch (error: any) {
       console.error('Error clearing tech conference settings:', error);
@@ -236,28 +234,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
         </div>
       </section>
 
-      {/* Debug Information */}
-      {debugInfo && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Debug Information</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Last Fetch: {new Date(debugInfo.timestamp).toLocaleString()}</p>
-                  <pre className="mt-2 overflow-auto">
-                    {JSON.stringify(debugInfo.data, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Supabase Connection Test */}
-      <SupabaseConnectionTest />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
@@ -285,7 +261,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
           </div>
         )}
 
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between">
           <button
             onClick={handleClearTable}
             disabled={clearing}
@@ -527,5 +503,3 @@ export const AdminTechConferenceSettings: React.FC = () => {
     </div>
   );
 };
-
-export default AdminTechConferenceSettings;
