@@ -19,6 +19,7 @@ interface TechConferenceSettings {
   fee: number;
   payment_instructions: string;
   description: string;
+  is_active: boolean;
 }
 
 const TechConferenceRegistration: React.FC = () => {
@@ -57,9 +58,8 @@ const TechConferenceRegistration: React.FC = () => {
       const { data, error } = await supabase
         .from('tech_conference_settings')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('is_active', true)
+        .single();
 
       if (error) {
         console.error('Error fetching tech conference settings:', error);
@@ -76,10 +76,17 @@ const TechConferenceRegistration: React.FC = () => {
       setConferenceSettings(data);
 
       // Check if registration deadline has passed
-      if (data?.registration_end_date) {
+      if (data.registration_end_date) {
         const endDate = new Date(data.registration_end_date);
         const now = new Date();
-        setIsRegistrationClosed(now > endDate);
+        
+        if (now > endDate) {
+          setIsRegistrationClosed(true);
+          setError(`Registration closed on ${endDate.toLocaleDateString()}`);
+        } else {
+          setIsRegistrationClosed(false);
+          setError(null);
+        }
       }
     } catch (error) {
       console.error('Error:', error);
@@ -141,6 +148,14 @@ const TechConferenceRegistration: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!conferenceSettings?.is_active) {
+      setFormStatus({
+        success: false,
+        message: 'Registration is not currently available.'
+      });
+      return;
+    }
 
     if (isRegistrationClosed) {
       setFormStatus({
@@ -275,7 +290,7 @@ const TechConferenceRegistration: React.FC = () => {
       </section>
 
       {/* Conference Info */}
-      {!isRegistrationClosed && conferenceSettings && (
+      {!isRegistrationClosed && conferenceSettings?.is_active && (
         <section className="py-12 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -378,7 +393,7 @@ const TechConferenceRegistration: React.FC = () => {
       )}
 
       {/* Registration Form */}
-      {isRegistrationClosed || !conferenceSettings ? (
+      {isRegistrationClosed || !conferenceSettings?.is_active ? (
         <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg p-8 text-center">
@@ -690,7 +705,6 @@ const TechConferenceRegistration: React.FC = () => {
               <div>
                 <button
                   type="submit"
-                
                   disabled={isSubmitting}
                   className="w-full inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
                 >
@@ -715,6 +729,7 @@ const TechConferenceRegistration: React.FC = () => {
         </section>
       )}
     </div>
+  </div>
   );
 };
 
