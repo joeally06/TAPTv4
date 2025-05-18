@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface ConferenceSettings {
   id: string;
@@ -26,6 +27,7 @@ export const AdminConferenceSettings: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
   const [isRollingOver, setIsRollingOver] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   
   const [settings, setSettings] = useState<ConferenceSettings>({
     id: crypto.randomUUID(),
@@ -49,44 +51,32 @@ export const AdminConferenceSettings: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Checking session...');
 
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw sessionError;
-      }
+      if (sessionError) throw sessionError;
       
       if (!session) {
-        console.log('No active session');
         navigate('/admin/login');
         return;
       }
 
-      console.log('Session found, checking user role...');
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
         .single();
 
-      if (userError) {
-        console.error('User role check error:', userError);
-        throw userError;
-      }
+      if (userError) throw userError;
 
       if (!userData || userData.role !== 'admin') {
-        console.log('User is not admin:', userData);
         await supabase.auth.signOut();
         navigate('/admin/login');
         return;
       }
 
-      console.log('Admin role verified, fetching settings...');
       await fetchSettings();
     } catch (error: any) {
-      console.error('Session check error:', error);
       setError(error.message);
       navigate('/admin/login');
     } finally {
@@ -105,10 +95,7 @@ export const AdminConferenceSettings: React.FC = () => {
         .eq('is_active', true)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching settings:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
         setSettings({
@@ -119,7 +106,6 @@ export const AdminConferenceSettings: React.FC = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error in fetchSettings:', error);
       setError(`Failed to load conference settings: ${error.message}`);
     } finally {
       setLoading(false);
@@ -142,8 +128,6 @@ export const AdminConferenceSettings: React.FC = () => {
     setSuccess(null);
 
     try {
-      console.log('Submitting settings:', settings);
-
       const { error } = await supabase
         .from('conference_settings')
         .upsert({
@@ -151,16 +135,11 @@ export const AdminConferenceSettings: React.FC = () => {
           updated_at: new Date().toISOString()
         });
 
-      if (error) {
-        console.error('Error saving settings:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Settings saved successfully');
       setSuccess('Conference settings saved successfully!');
-      await fetchSettings(); // Refresh the data
+      await fetchSettings();
     } catch (error: any) {
-      console.error('Error in handleSubmit:', error);
       setError(`Failed to save conference settings: ${error.message}`);
     } finally {
       setSaving(false);
@@ -168,10 +147,6 @@ export const AdminConferenceSettings: React.FC = () => {
   };
 
   const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to clear all conference settings? This action cannot be undone.')) {
-      return;
-    }
-
     setClearing(true);
     setError(null);
     setSuccess(null);
@@ -180,7 +155,7 @@ export const AdminConferenceSettings: React.FC = () => {
       const { error } = await supabase
         .from('conference_settings')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
       if (error) throw error;
 
@@ -199,10 +174,10 @@ export const AdminConferenceSettings: React.FC = () => {
         is_active: true
       });
     } catch (error: any) {
-      console.error('Error clearing conference settings:', error);
       setError(`Failed to clear conference settings: ${error.message}`);
     } finally {
       setClearing(false);
+      setShowClearModal(false);
     }
   };
 
@@ -211,7 +186,6 @@ export const AdminConferenceSettings: React.FC = () => {
       setIsRollingOver(true);
       setError(null);
 
-      // Validate Supabase URL
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) {
         throw new Error('VITE_SUPABASE_URL is not defined in the environment');
@@ -223,7 +197,6 @@ export const AdminConferenceSettings: React.FC = () => {
         throw new Error('VITE_SUPABASE_URL is invalid');
       }
 
-      // Get current session and validate
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       
@@ -231,12 +204,10 @@ export const AdminConferenceSettings: React.FC = () => {
         throw new Error('No active session or access token is missing');
       }
 
-      // Validate dates
       if (!settings.start_date || !settings.end_date || !settings.registration_end_date) {
         throw new Error('Please set all required dates before rolling over');
       }
 
-      // Prepare new settings
       const newSettings = {
         ...settings,
         id: crypto.randomUUID(),
@@ -245,9 +216,6 @@ export const AdminConferenceSettings: React.FC = () => {
         registration_end_date: settings.registration_end_date,
       };
 
-      console.log('Rolling over with settings:', newSettings);
-
-      // Call rollover function
       const response = await fetch(
         `${supabaseUrl}/functions/v1/rollover`,
         {
@@ -264,7 +232,6 @@ export const AdminConferenceSettings: React.FC = () => {
       );
 
       if (!response.ok) {
-        console.error(`Rollover failed with status ${response.status}: ${response.statusText}`);
         const errorData = await response.json();
         throw new Error(errorData.message || `Failed to rollover conference: ${response.statusText}`);
       }
@@ -275,9 +242,8 @@ export const AdminConferenceSettings: React.FC = () => {
       }
 
       setSuccess('Conference rolled over successfully! Previous registrations have been archived.');
-      await fetchSettings(); // Refresh settings
+      await fetchSettings();
     } catch (error: any) {
-      console.error('Error rolling over conference:', error);
       setError(`Failed to rollover conference: ${error.message}`);
     } finally {
       setIsRollingOver(false);
@@ -340,7 +306,7 @@ export const AdminConferenceSettings: React.FC = () => {
 
         <div className="mb-6 flex justify-between">
           <button
-            onClick={handleClearTable}
+            onClick={() => setShowClearModal(true)}
             disabled={clearing}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
           >
@@ -371,7 +337,6 @@ export const AdminConferenceSettings: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-lg p-8">
           <div className="space-y-6">
-            {/* Basic Information */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Basic Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -414,7 +379,6 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
-            {/* Dates */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Conference Dates</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -480,7 +444,6 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
-            {/* Location */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Location Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -523,7 +486,6 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
-            {/* Additional Information */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Additional Information</h2>
               
@@ -559,7 +521,6 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
-            {/* Submit Button */}
             <div className="pt-6">
               <button
                 type="submit"
@@ -585,7 +546,6 @@ export const AdminConferenceSettings: React.FC = () => {
           </div>
         </form>
 
-        {/* Rollover Modal */}
         {showRolloverModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
@@ -650,6 +610,18 @@ export const AdminConferenceSettings: React.FC = () => {
             </div>
           </div>
         )}
+
+        <ConfirmationModal
+          isOpen={showClearModal}
+          onClose={() => setShowClearModal(false)}
+          onConfirm={handleClearTable}
+          title="Clear Conference Settings"
+          message="Are you sure you want to clear all conference settings? This action cannot be undone."
+          confirmText="Clear Settings"
+          confirmationPhrase="CLEAR SETTINGS"
+          isLoading={clearing}
+          loadingText="Clearing..."
+        />
       </div>
     </div>
   );
