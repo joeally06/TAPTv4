@@ -109,3 +109,5 @@ const AdminConferenceRegistrations: React.FC = () => {
 };
 
 export default AdminConferenceRegistrations;
+
+export { AdminConferenceRegistrations }
