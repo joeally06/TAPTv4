@@ -729,7 +729,6 @@ const TechConferenceRegistration: React.FC = () => {
         </section>
       )}
     </div>
-  </div>
   );
 };
 
