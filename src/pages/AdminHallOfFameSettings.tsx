@@ -21,7 +21,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
   
   const [settings, setSettings] = useState<HallOfFameSettings>({
     id: crypto.randomUUID(),
@@ -92,7 +91,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching hall of fame settings...');
       const { data, error } = await supabase
         .from('hall_of_fame_settings')
         .select('*')
@@ -103,12 +101,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
         console.error('Error fetching settings:', error);
         throw error;
       }
-
-      console.log('Settings data:', data);
-      setDebugInfo({
-        timestamp: new Date().toISOString(),
-        data: data
-      });
 
       if (data) {
         setSettings({
@@ -226,25 +218,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
           <p className="mt-2">Manage Hall of Fame nomination period and requirements</p>
         </div>
       </section>
-
-      {/* Debug Information */}
-      {debugInfo && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Debug Information</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Last Fetch: {new Date(debugInfo.timestamp).toLocaleString()}</p>
-                  <pre className="mt-2 overflow-auto">
-                    {JSON.stringify(debugInfo.data, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (

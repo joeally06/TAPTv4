@@ -24,7 +24,6 @@ export const AdminConferenceSettings: React.FC = () => {
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
   const [isRollingOver, setIsRollingOver] = useState(false);
   
@@ -100,7 +99,6 @@ export const AdminConferenceSettings: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching conference settings...');
       const { data, error } = await supabase
         .from('conference_settings')
         .select('*')
@@ -111,12 +109,6 @@ export const AdminConferenceSettings: React.FC = () => {
         console.error('Error fetching settings:', error);
         throw error;
       }
-
-      console.log('Settings data:', data);
-      setDebugInfo({
-        timestamp: new Date().toISOString(),
-        data: data
-      });
 
       if (data) {
         setSettings({
@@ -318,25 +310,6 @@ export const AdminConferenceSettings: React.FC = () => {
           <p className="mt-2">Manage conference details and registration settings</p>
         </div>
       </section>
-
-      {/* Debug Information */}
-      {debugInfo && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Debug Information</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Last Fetch: {new Date(debugInfo.timestamp).toLocaleString()}</p>
-                  <pre className="mt-2 overflow-auto">
-                    {JSON.stringify(debugInfo.data, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
