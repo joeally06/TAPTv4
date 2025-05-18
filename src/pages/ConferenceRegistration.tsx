@@ -146,18 +146,18 @@ const ConferenceRegistration: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isRegistrationClosed) {
-      setFormStatus({
-        success: false,
-        message: 'Registration is closed. The deadline has passed.'
-      });
-      return;
-    }
-
     if (!conferenceSettings?.is_active) {
       setFormStatus({
         success: false,
         message: 'Registration is not currently available.'
+      });
+      return;
+    }
+
+    if (isRegistrationClosed) {
+      setFormStatus({
+        success: false,
+        message: 'Registration is closed. The deadline has passed.'
       });
       return;
     }
