@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface HallOfFameSettings {
   id: string;
@@ -22,6 +23,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const [isRollingOver, setIsRollingOver] = useState(false);
   
   const [settings, setSettings] = useState<HallOfFameSettings>({
@@ -145,10 +147,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
   };
 
   const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to clear all hall of fame settings? This action cannot be undone.')) {
-      return;
-    }
-
     setClearing(true);
     setError(null);
     setSuccess(null);
@@ -176,6 +174,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
       setError(`Failed to clear hall of fame settings: ${error.message}`);
     } finally {
       setClearing(false);
+      setShowClearModal(false);
     }
   };
 
@@ -308,7 +307,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
 
         <div className="mb-6 flex justify-between">
           <button
-            onClick={handleClearTable}
+            onClick={() => setShowClearModal(true)}
             disabled={clearing}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
           >
@@ -539,6 +538,18 @@ export const AdminHallOfFameSettings: React.FC = () => {
             </div>
           </div>
         )}
+
+        <ConfirmationModal
+          isOpen={showClearModal}
+          onClose={() => setShowClearModal(false)}
+          onConfirm={handleClearTable}
+          title="Clear Hall of Fame Settings"
+          message="Are you sure you want to clear all hall of fame settings? This action cannot be undone."
+          confirmText="Clear Settings"
+          confirmationPhrase="CLEAR SETTINGS"
+          isLoading={clearing}
+          loadingText="Clearing..."
+        />
       </div>
     </div>
   );

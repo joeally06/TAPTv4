@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface TechConferenceSettings {
   id: string;
@@ -25,6 +26,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const [isRollingOver, setIsRollingOver] = useState(false);
   
   const [settings, setSettings] = useState<TechConferenceSettings>({
@@ -154,10 +156,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
   };
 
   const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to clear all tech conference settings? This action cannot be undone.')) {
-      return;
-    }
-
     setClearing(true);
     setError(null);
     setSuccess(null);
@@ -188,6 +186,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
       setError(`Failed to clear tech conference settings: ${error.message}`);
     } finally {
       setClearing(false);
+      setShowClearModal(false);
     }
   };
 
@@ -196,7 +195,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
       setIsRollingOver(true);
       setError(null);
 
-      // Validate Supabase URL
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) {
         throw new Error('VITE_SUPABASE_URL is not defined in the environment');
@@ -208,7 +206,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
         throw new Error('VITE_SUPABASE_URL is invalid');
       }
 
-      // Get current session and validate
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       
@@ -216,12 +213,10 @@ export const AdminTechConferenceSettings: React.FC = () => {
         throw new Error('No active session or access token is missing');
       }
 
-      // Validate dates
       if (!settings.start_date || !settings.end_date || !settings.registration_end_date) {
         throw new Error('Please set all required dates before rolling over');
       }
 
-      // Prepare new settings
       const newSettings = {
         ...settings,
         id: crypto.randomUUID(),
@@ -230,7 +225,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
         registration_end_date: settings.registration_end_date,
       };
 
-      // Call rollover function
       const response = await fetch(
         `${supabaseUrl}/functions/v1/rollover`,
         {
@@ -321,7 +315,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
 
         <div className="mb-6 flex justify-between">
           <button
-            onClick={handleClearTable}
+            onClick={() => setShowClearModal(true)}
             disabled={clearing}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
           >
@@ -631,6 +625,18 @@ export const AdminTechConferenceSettings: React.FC = () => {
             </div>
           </div>
         )}
+
+        <ConfirmationModal
+          isOpen={showClearModal}
+          onClose={() => setShowClearModal(false)}
+          onConfirm={handleClearTable}
+          title="Clear Tech Conference Settings"
+          message="Are you sure you want to clear all tech conference settings? This action cannot be undone."
+          confirmText="Clear Settings"
+          confirmationPhrase="CLEAR SETTINGS"
+          isLoading={clearing}
+          loadingText="Clearing..."
+        />
       </div>
     </div>
   );
