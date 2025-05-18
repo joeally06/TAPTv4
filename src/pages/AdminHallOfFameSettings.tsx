@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
-import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
 interface HallOfFameSettings {
   id: string;
@@ -12,6 +11,7 @@ interface HallOfFameSettings {
   description: string;
   nomination_instructions: string;
   eligibility_criteria: string;
+  is_active: boolean;
 }
 
 export const AdminHallOfFameSettings: React.FC = () => {
@@ -30,7 +30,8 @@ export const AdminHallOfFameSettings: React.FC = () => {
     end_date: '',
     description: '',
     nomination_instructions: '',
-    eligibility_criteria: ''
+    eligibility_criteria: '',
+    is_active: true
   });
 
   useEffect(() => {
@@ -95,7 +96,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
       const { data, error } = await supabase
         .from('hall_of_fame_settings')
         .select('*')
-        .order('created_at', { ascending: false })
+        .eq('is_active', true)
         .maybeSingle();
 
       if (error) {
@@ -189,7 +190,8 @@ export const AdminHallOfFameSettings: React.FC = () => {
         end_date: '',
         description: '',
         nomination_instructions: '',
-        eligibility_criteria: ''
+        eligibility_criteria: '',
+        is_active: true
       });
     } catch (error: any) {
       console.error('Error clearing hall of fame settings:', error);
@@ -244,9 +246,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
         </div>
       )}
 
-      {/* Supabase Connection Test */}
-      <SupabaseConnectionTest />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
@@ -291,7 +290,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
             ) : (
               <>
                 <Trash2 className="mr-2 h-5 w-5" />
-                Clear Hall of Fame Settings
+                Clear Settings
               </>
             )}
           </button>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
-import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
 
 interface ConferenceSettings {
   id: string;
@@ -37,7 +36,7 @@ export const AdminConferenceSettings: React.FC = () => {
     registration_end_date: '',
     location: '',
     venue: '',
-    fee: '',
+    fee: 175.00,
     payment_instructions: '',
     description: '',
     is_active: true
@@ -338,9 +337,6 @@ export const AdminConferenceSettings: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Supabase Connection Test */}
-      <SupabaseConnectionTest />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
