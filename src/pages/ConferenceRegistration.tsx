@@ -19,6 +19,7 @@ interface ConferenceSettings {
   fee: number;
   payment_instructions: string;
   description: string;
+  is_active: boolean;
 }
 
 const ConferenceRegistration: React.FC = () => {
@@ -56,9 +57,8 @@ const ConferenceRegistration: React.FC = () => {
       const { data, error } = await supabase
         .from('conference_settings')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('is_active', true)
+        .single();
 
       if (error) {
         console.error('Error fetching conference settings:', error);
@@ -67,7 +67,7 @@ const ConferenceRegistration: React.FC = () => {
       }
 
       if (!data) {
-        setError('Conference registration is not available at this time.');
+        setError('No active conference registration is available at this time.');
         return;
       }
 
@@ -77,9 +77,13 @@ const ConferenceRegistration: React.FC = () => {
       if (data.registration_end_date) {
         const endDate = new Date(data.registration_end_date);
         const now = new Date();
+        
         if (now > endDate) {
           setIsRegistrationClosed(true);
           setError(`Registration closed on ${endDate.toLocaleDateString()}`);
+        } else {
+          setIsRegistrationClosed(false);
+          setError(null);
         }
       }
     } catch (error) {
@@ -150,6 +154,14 @@ const ConferenceRegistration: React.FC = () => {
       return;
     }
 
+    if (!conferenceSettings?.is_active) {
+      setFormStatus({
+        success: false,
+        message: 'Registration is not currently available.'
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setFormStatus({});
 
@@ -169,7 +181,8 @@ const ConferenceRegistration: React.FC = () => {
             email: formData.email,
             phone: formData.phone,
             total_attendees: formData.totalAttendees,
-            total_amount: totalAmount
+            total_amount: totalAmount,
+            conference_id: conferenceSettings?.id
           }
         ])
         .select()
@@ -244,7 +257,7 @@ const ConferenceRegistration: React.FC = () => {
       </section>
 
       {/* Conference Info */}
-      {!isRegistrationClosed && conferenceSettings && (
+      {!isRegistrationClosed && conferenceSettings?.is_active && (
         <section className="py-12 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -331,7 +344,7 @@ const ConferenceRegistration: React.FC = () => {
       )}
 
       {/* Registration Form */}
-      {isRegistrationClosed || !conferenceSettings ? (
+      {isRegistrationClosed || !conferenceSettings?.is_active ? (
         <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg p-8 text-center">
