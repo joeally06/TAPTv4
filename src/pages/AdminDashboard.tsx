@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import AdminLayout from '../components/AdminLayout';
+import { default as AdminLayout } from '../components/AdminLayout';
 import {
   Users,
   Calendar,
