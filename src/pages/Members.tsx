@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { CheckCircle, Users, Calendar, Award, FileText, BookOpen } from 'lucide-react';
 import { 
   validateMembershipForm, 
@@ -14,17 +15,17 @@ export const Members: React.FC = () => {
   }, []);
 
   const [formData, setFormData] = useState<MembershipFormData>({
-    firstName: '',
-    lastName: '',
+    first_name: '',
+    last_name: '',
     email: '',
-    phone: '',
+    phone: null,
     organization: '',
     position: '',
-    membershipType: '',
-    isNewMember: '',
-    hearAboutUs: '',
+    membership_type: '',
+    is_new_member: '',
+    hear_about_us: null,
     interests: [],
-    agreeToTerms: false
+    agree_to_terms: false
   });
 
   const [errors, setErrors] = useState<ValidationError[]>([]);
@@ -45,7 +46,6 @@ export const Members: React.FC = () => {
         [name]: checked
       }));
     } else if (name === 'phone') {
-      // Format phone number as user types
       setFormData(prev => ({
         ...prev,
         [name]: formatPhone(value)
@@ -57,7 +57,6 @@ export const Members: React.FC = () => {
       }));
     }
 
-    // Clear error for this field when user starts typing
     setErrors(prev => prev.filter(error => error.field !== name));
   };
 
@@ -75,7 +74,6 @@ export const Members: React.FC = () => {
       };
     });
 
-    // Clear interests error if at least one is selected
     if (checked) {
       setErrors(prev => prev.filter(error => error.field !== 'interests'));
     }
@@ -86,41 +84,56 @@ export const Members: React.FC = () => {
     setIsSubmitting(true);
     setErrors([]);
 
-    // Validate form
     const validationErrors = validateMembershipForm(formData);
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
       setIsSubmitting(false);
       
-      // Scroll to first error
       const firstErrorField = document.querySelector(`[name="${validationErrors[0].field}"]`);
       firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
     try {
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      const { error } = await supabase
+        .from('membership_applications')
+        .insert([{
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          phone: formData.phone,
+          organization: formData.organization,
+          position: formData.position,
+          membership_type: formData.membership_type,
+          is_new_member: formData.is_new_member,
+          hear_about_us: formData.hear_about_us,
+          interests: formData.interests,
+          agree_to_terms: formData.agree_to_terms
+        }]);
+
+      if (error) throw error;
+
       setSubmitSuccess(true);
       
-      // Reset form after successful submission
+      // Reset form
       setFormData({
-        firstName: '',
-        lastName: '',
+        first_name: '',
+        last_name: '',
         email: '',
-        phone: '',
+        phone: null,
         organization: '',
         position: '',
-        membershipType: '',
-        isNewMember: '',
-        hearAboutUs: '',
+        membership_type: '',
+        is_new_member: '',
+        hear_about_us: null,
         interests: [],
-        agreeToTerms: false
+        agree_to_terms: false
       });
 
       // Scroll to top to show success message
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error submitting application:', error);
       setErrors([{ 
         field: 'submit', 
         message: 'An error occurred while submitting your application. Please try again.' 
@@ -267,17 +280,17 @@ export const Members: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      name="firstName"
-                      value={formData.firstName}
+                      name="first_name"
+                      value={formData.first_name}
                       onChange={handleInputChange}
                       className={`mt-1 block w-full rounded-md ${
-                        getFieldError('firstName')
+                        getFieldError('first_name')
                           ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-300 focus:border-primary focus:ring-primary'
                       }`}
                     />
-                    {getFieldError('firstName') && (
-                      <p className="mt-2 text-sm text-red-600">{getFieldError('firstName')}</p>
+                    {getFieldError('first_name') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('first_name')}</p>
                     )}
                   </div>
 
@@ -287,17 +300,17 @@ export const Members: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      name="lastName"
-                      value={formData.lastName}
+                      name="last_name"
+                      value={formData.last_name}
                       onChange={handleInputChange}
                       className={`mt-1 block w-full rounded-md ${
-                        getFieldError('lastName')
+                        getFieldError('last_name')
                           ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-300 focus:border-primary focus:ring-primary'
                       }`}
                     />
-                    {getFieldError('lastName') && (
-                      <p className="mt-2 text-sm text-red-600">{getFieldError('lastName')}</p>
+                    {getFieldError('last_name') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('last_name')}</p>
                     )}
                   </div>
 
@@ -328,7 +341,7 @@ export const Members: React.FC = () => {
                     <input
                       type="tel"
                       name="phone"
-                      value={formData.phone}
+                      value={formData.phone || ''}
                       onChange={handleInputChange}
                       placeholder="(123) 456-7890"
                       className={`mt-1 block w-full rounded-md ${
@@ -528,3 +541,5 @@ export const Members: React.FC = () => {
     </div>
   );
 };
+
+export { Members }
