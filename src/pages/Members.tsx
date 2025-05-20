@@ -541,5 +541,3 @@ export const Members: React.FC = () => {
     </div>
   );
 };
-
-export { Members }
