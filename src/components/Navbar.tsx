@@ -74,8 +74,14 @@ export const Navbar = () => {
 
   const navItems = [
     { name: 'Home', path: '/' },
-    { name: 'About', path: '/about' },
-    { name: 'Board Members', path: '/board-members' },
+    { 
+      name: 'About', 
+      path: '/about',
+      subItems: [
+        { name: 'Board Members', path: '/board-members' },
+        { name: 'Contact', path: '/contact' }
+      ]
+    },
     { name: 'Resources', path: '/resources' },
     { name: 'News', path: '/news' },
     { 
@@ -87,7 +93,6 @@ export const Navbar = () => {
       ]
     },
     { name: 'Members', path: '/members' },
-    { name: 'Contact', path: '/contact' },
     { 
       name: 'Hall of Fame',
       path: '/hall-of-fame',
