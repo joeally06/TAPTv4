@@ -59,3 +59,5 @@ const menuItems = [
     path: '/admin/archives'
   }
 ];
+
+export default menuItems
