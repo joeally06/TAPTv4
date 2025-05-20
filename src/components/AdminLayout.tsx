@@ -1,3 +1,5 @@
+import { LayoutDashboard, Settings, Users, FileText, Calendar, Award, Archive } from 'lucide-react';
+
 {/* Update the menuItems array to include the new Memberships menu item */}
 const menuItems = [
   {
