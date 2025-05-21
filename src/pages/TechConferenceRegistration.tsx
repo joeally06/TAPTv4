@@ -733,5 +733,3 @@ const TechConferenceRegistration: React.FC = () => {
 };
 
 export default TechConferenceRegistration;
-
-export default TechConferenceRegistration
