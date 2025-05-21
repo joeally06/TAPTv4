@@ -1,99 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, MapPin, Clock, Users, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Calendar, MapPin, Clock, Users, ChevronRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  status: string;
+  featured: boolean;
+  is_featured: boolean;
+  image_url: string | null;
+  date: string;
+  category: string;
+  link: string | null;
+  created_at: string;
+}
 
 export const Events: React.FC = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
-  // State for the current filter
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
   const [filter, setFilter] = useState('upcoming');
 
-  // Event data
-  const events = [
-    {
-      id: 1,
-      title: "Annual TAPT Conference",
-      date: "June 15-17, 2023",
-      time: "8:00 AM - 5:00 PM",
-      location: "Knoxville Convention Center",
-      address: "701 Henley St, Knoxville, TN 37902",
-      image: "https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=600",
-      description: "Join us for the annual TAPT Conference featuring workshops, networking opportunities, and the latest in pupil transportation.",
-      status: "upcoming",
-      featured: true
-    },
-    {
-      id: 2,
-      title: "Driver Training Workshop",
-      date: "May 20, 2023",
-      time: "9:00 AM - 4:00 PM",
-      location: "Nashville Transportation Center",
-      address: "123 Main St, Nashville, TN 37203",
-      image: "https://images.pexels.com/photos/6249554/pexels-photo-6249554.jpeg?auto=compress&cs=tinysrgb&w=600",
-      description: "Comprehensive training for school bus drivers focusing on safety procedures and student management.",
-      status: "upcoming",
-      featured: false
-    },
-    {
-      id: 3,
-      title: "Regional Directors Meeting",
-      date: "May 5, 2023",
-      time: "1:00 PM - 3:00 PM",
-      location: "Virtual Meeting",
-      address: "Zoom (link will be sent to participants)",
-      image: "https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=600",
-      description: "Quarterly meeting for regional transportation directors to discuss issues and share best practices.",
-      status: "upcoming",
-      featured: false
-    },
-    {
-      id: 4,
-      title: "Safety Awards Ceremony",
-      date: "April 15, 2023",
-      time: "6:00 PM - 9:00 PM",
-      location: "Marriott Hotel",
-      address: "250 Broadway, Memphis, TN 38103",
-      image: "https://images.pexels.com/photos/1709003/pexels-photo-1709003.jpeg?auto=compress&cs=tinysrgb&w=600",
-      description: "Annual ceremony recognizing outstanding safety records and achievements in pupil transportation.",
-      status: "past",
-      featured: false
-    },
-    {
-      id: 5,
-      title: "Legislative Update Webinar",
-      date: "March 10, 2023",
-      time: "10:00 AM - 11:30 AM",
-      location: "Virtual Webinar",
-      address: "Online (registration required)",
-      image: "https://images.pexels.com/photos/7688460/pexels-photo-7688460.jpeg?auto=compress&cs=tinysrgb&w=600",
-      description: "Learn about recent legislative changes affecting school transportation in Tennessee.",
-      status: "past",
-      featured: false
-    },
-    {
-      id: 6,
-      title: "Winter Weather Driving Workshop",
-      date: "February 8, 2023",
-      time: "8:30 AM - 12:30 PM",
-      location: "Johnson City Transportation Facility",
-      address: "456 School Rd, Johnson City, TN 37601",
-      image: "https://images.pexels.com/photos/5694134/pexels-photo-5694134.jpeg?auto=compress&cs=tinysrgb&w=600",
-      description: "Specialized training for drivers on navigating winter weather conditions safely.",
-      status: "past",
-      featured: false
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('content')
+        .select('*')
+        .eq('type', 'event')
+        .eq('status', 'published')
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      setEvents(data || []);
+    } catch (error: any) {
+      console.error('Error fetching events:', error);
+      setError('Failed to load events');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   // Filter events based on current filter
   const filteredEvents = events.filter(event => {
     if (filter === 'all') return true;
-    return event.status === filter;
+    
+    const eventDate = new Date(event.date);
+    const now = new Date();
+    
+    return filter === 'upcoming' ? eventDate >= now : eventDate < now;
   });
 
   // Find featured event
-  const featuredEvent = events.find(event => event.featured && event.status === 'upcoming');
+  const featuredEvent = events.find(event => event.is_featured);
 
   return (
     <div className="pt-16">
@@ -119,11 +86,17 @@ export const Events: React.FC = () => {
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
               <div className="md:flex">
                 <div className="md:flex-shrink-0">
-                  <img
-                    className="h-60 w-full object-cover md:w-64 md:h-full"
-                    src={featuredEvent.image}
-                    alt={featuredEvent.title}
-                  />
+                  {featuredEvent.image_url ? (
+                    <img
+                      className="h-60 w-full object-cover md:w-64 md:h-full"
+                      src={featuredEvent.image_url}
+                      alt={featuredEvent.title}
+                    />
+                  ) : (
+                    <div className="h-60 w-full md:w-64 md:h-full bg-gray-200 flex items-center justify-center">
+                      <Calendar className="h-12 w-12 text-gray-400" />
+                    </div>
+                  )}
                 </div>
                 <div className="p-8">
                   <div className="uppercase tracking-wide text-sm text-primary font-semibold">Don't Miss!</div>
@@ -132,28 +105,30 @@ export const Events: React.FC = () => {
                   </h3>
                   <div className="mt-3 flex items-center text-gray-600">
                     <Calendar className="h-5 w-5 mr-2" />
-                    <span>{featuredEvent.date}</span>
-                  </div>
-                  <div className="mt-1 flex items-center text-gray-600">
-                    <Clock className="h-5 w-5 mr-2" />
-                    <span>{featuredEvent.time}</span>
-                  </div>
-                  <div className="mt-1 flex items-center text-gray-600">
-                    <MapPin className="h-5 w-5 mr-2" />
-                    <span>{featuredEvent.location}</span>
+                    <span>{new Date(featuredEvent.date).toLocaleDateString()}</span>
                   </div>
                   <p className="mt-4 text-gray-600">
                     {featuredEvent.description}
                   </p>
-                  <div className="mt-6">
+                  {featuredEvent.link ? (
+                    <a
+                      href={featuredEvent.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90"
+                    >
+                      Event Details
+                      <ChevronRight className="ml-2 h-5 w-5" />
+                    </a>
+                  ) : (
                     <Link
                       to={`/events/${featuredEvent.id}`}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90"
+                      className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90"
                     >
                       Event Details
                       <ChevronRight className="ml-2 h-5 w-5" />
                     </Link>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -189,16 +164,36 @@ export const Events: React.FC = () => {
           
           {/* Events Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredEvents.length > 0 ? (
+            {loading ? (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+              </div>
+            ) : error ? (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12">
+                <p className="text-red-600">{error}</p>
+              </div>
+            ) : filteredEvents.length === 0 ? (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center py-12">
+                <div className="bg-gray-100 p-4 rounded-full">
+                  <Calendar className="h-12 w-12 text-gray-400" />
+                </div>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">No events found</h3>
+                <p className="mt-1 text-sm text-gray-500">Check back soon for updates or adjust your filter.</p>
+              </div>
+            ) : (
               filteredEvents.map(event => (
                 <div key={event.id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="h-48 overflow-hidden">
+                  {event.image_url ? (
                     <img 
-                      src={event.image} 
+                      src={event.image_url} 
                       alt={event.title} 
-                      className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
+                      className="w-full h-48 object-cover transform hover:scale-105 transition-transform duration-500"
                     />
-                  </div>
+                  ) : (
+                    <div className="h-48 bg-gray-200 flex items-center justify-center">
+                      <Calendar className="h-12 w-12 text-gray-400" />
+                    </div>
+                  )}
                   <div className="p-6">
                     {event.status === 'past' && (
                       <div className="inline-block px-2 py-1 mb-3 rounded bg-gray-100 text-gray-800 text-xs uppercase tracking-wide font-semibold">
@@ -211,15 +206,7 @@ export const Events: React.FC = () => {
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center text-gray-600">
                         <Calendar className="h-5 w-5 mr-2 text-gray-400" />
-                        <span>{event.date}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <Clock className="h-5 w-5 mr-2 text-gray-400" />
-                        <span>{event.time}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <MapPin className="h-5 w-5 mr-2 text-gray-400" />
-                        <span>{event.location}</span>
+                        <span>{new Date(event.date).toLocaleDateString()}</span>
                       </div>
                     </div>
                     
@@ -227,23 +214,26 @@ export const Events: React.FC = () => {
                       {event.description}
                     </p>
                     
-                    <Link
-                      to={`/events/${event.id}`}
-                      className="inline-block text-primary font-medium hover:underline"
-                    >
-                      Event Details <ChevronRight className="inline h-4 w-4" />
-                    </Link>
+                    {event.link ? (
+                      <a
+                        href={event.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block text-primary font-medium hover:underline"
+                      >
+                        Event Details <ChevronRight className="inline h-4 w-4" />
+                      </a>
+                    ) : (
+                      <Link
+                        to={`/events/${event.id}`}
+                        className="inline-block text-primary font-medium hover:underline"
+                      >
+                        Event Details <ChevronRight className="inline h-4 w-4" />
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))
-            ) : (
-              <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center py-12">
-                <div className="bg-gray-100 p-4 rounded-full">
-                  <Calendar className="h-12 w-12 text-gray-400" />
-                </div>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">No events found</h3>
-                <p className="mt-1 text-sm text-gray-500">Check back soon for updates or adjust your filter.</p>
-              </div>
             )}
           </div>
         </div>
@@ -261,15 +251,11 @@ export const Events: React.FC = () => {
                 </p>
                 <div className="space-y-4">
                   <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                    <svg className="mr-2 -ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+                    <Calendar className="mr-2 h-5 w-5" />
                     Add to Calendar
                   </button>
                   <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                    <svg className="mr-2 -ml-1 h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
+                    <Calendar className="mr-2 h-5 w-5 text-gray-500" />
                     Download iCal File
                   </button>
                 </div>
