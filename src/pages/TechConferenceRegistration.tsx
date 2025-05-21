@@ -59,7 +59,7 @@ const TechConferenceRegistration: React.FC = () => {
         .from('tech_conference_settings')
         .select('*')
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching tech conference settings:', error);
@@ -733,3 +733,5 @@ const TechConferenceRegistration: React.FC = () => {
 };
 
 export default TechConferenceRegistration;
+
+export default TechConferenceRegistration
