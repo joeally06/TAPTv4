@@ -12,7 +12,8 @@ import {
   Image,
   Save,
   X,
-  Upload
+  Upload,
+  Star
 } from 'lucide-react';
 import { NEWS_CATEGORIES } from '../lib/types/news';
 
@@ -27,6 +28,7 @@ interface ContentItem {
   date: string | null;
   category: string | null;
   link: string | null;
+  is_featured: boolean;
 }
 
 interface ResourceItem {
@@ -59,6 +61,7 @@ export const AdminContent: React.FC = () => {
     type: selectedType,
     status: 'draft',
     featured: false,
+    is_featured: false,
     category: null
   });
 
@@ -157,7 +160,6 @@ export const AdminContent: React.FC = () => {
           throw new Error('Please select a file to upload');
         }
 
-        // Upload file to storage
         const fileExt = selectedFile.name.split('.').pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `resources/${fileName}`;
@@ -168,12 +170,10 @@ export const AdminContent: React.FC = () => {
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('public')
           .getPublicUrl(filePath);
 
-        // Create resource record
         const { error: dbError } = await supabase
           .from('resources')
           .insert([{
@@ -235,6 +235,7 @@ export const AdminContent: React.FC = () => {
         type: selectedType,
         status: 'draft',
         featured: false,
+        is_featured: false,
         category: null
       });
     } catch (error: any) {
@@ -297,7 +298,6 @@ export const AdminContent: React.FC = () => {
 
   return (
     <div className="pt-16">
-      {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center space-x-4">
@@ -315,7 +315,6 @@ export const AdminContent: React.FC = () => {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Status Messages */}
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
             <p className="text-red-700">{error}</p>
@@ -328,7 +327,6 @@ export const AdminContent: React.FC = () => {
           </div>
         )}
 
-        {/* Content Type Tabs */}
         <div className="mb-6 border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             {contentTypes.map(({ id, label, icon: Icon }) => (
@@ -349,7 +347,6 @@ export const AdminContent: React.FC = () => {
           </nav>
         </div>
 
-        {/* Add Content Button */}
         <div className="mb-6">
           <button
             onClick={() => {
@@ -360,6 +357,7 @@ export const AdminContent: React.FC = () => {
                 type: selectedType,
                 status: 'draft',
                 featured: false,
+                is_featured: false,
                 category: selectedType === 'news' ? NEWS_CATEGORIES[1].id : null
               });
               setShowForm(!showForm);
@@ -371,7 +369,6 @@ export const AdminContent: React.FC = () => {
           </button>
         </div>
 
-        {/* Content Form */}
         {showForm && (
           <div className="mb-8 bg-white shadow-md rounded-lg p-6">
             <div className="flex justify-between items-center mb-6">
@@ -521,7 +518,7 @@ export const AdminContent: React.FC = () => {
                       <select
                         value={formData.status}
                         onChange={(e) => setFormData({ ...formData, status: e.target.value as 'draft' | 'published' })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                        className="mt-1 block w-full shadow-sm focus:ring-primary focus:border-primary rounded-md border-gray-300"
                       >
                         <option value="draft">Draft</option>
                         <option value="published">Published</option>
@@ -538,6 +535,19 @@ export const AdminContent: React.FC = () => {
                       />
                       <label htmlFor="featured" className="ml-2 block text-sm text-gray-700">
                         Featured
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="is_featured"
+                        checked={formData.is_featured}
+                        onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                      />
+                      <label htmlFor="is_featured" className="ml-2 block text-sm text-gray-700">
+                        Featured Event
                       </label>
                     </div>
                   </div>
@@ -564,7 +574,6 @@ export const AdminContent: React.FC = () => {
           </div>
         )}
 
-        {/* Content List */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">
@@ -688,7 +697,18 @@ export const AdminContent: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.featured ? 'Yes' : 'No'}
+                        <div className="flex items-center space-x-2">
+                          {item.featured && (
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                              Featured
+                            </span>
+                          )}
+                          {item.is_featured && (
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                              Featured Event
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {item.date ? new Date(item.date).toLocaleDateString() : '-'}
