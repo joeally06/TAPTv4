@@ -12,7 +12,8 @@ import {
   X,
   Archive,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Home
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -43,6 +44,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   const menuItems = [
+    {
+      name: 'Home',
+      icon: Home,
+      path: '/'
+    },
     {
       name: 'Dashboard',
       icon: LayoutDashboard,
