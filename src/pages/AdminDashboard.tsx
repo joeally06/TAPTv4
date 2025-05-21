@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
+import AdminLayout from '../components/AdminLayout';
 import {
-  Settings,
   Users,
   Calendar,
   Award,
-  FileText,
-  Bell,
-  LogOut
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  FileText
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -19,12 +20,14 @@ export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
     conferenceRegistrations: 0,
     techConferenceRegistrations: 0,
-    nominations: 0
+    nominations: 0,
+    totalUsers: 0,
+    pendingNominations: 0,
+    upcomingEvents: 0
   });
 
   useEffect(() => {
     checkAdminStatus();
-    fetchDashboardStats();
   }, []);
 
   const checkAdminStatus = async () => {
@@ -49,7 +52,10 @@ export const AdminDashboard: React.FC = () => {
       if (!userData || userData.role !== 'admin') {
         await supabase.auth.signOut();
         navigate('/admin/login');
+        return;
       }
+
+      fetchDashboardStats();
     } catch (error) {
       console.error('Session check error:', error);
       navigate('/admin/login');
@@ -59,263 +65,228 @@ export const AdminDashboard: React.FC = () => {
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      
-      // Verify admin status first
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('Authentication required');
-      }
+      setError(null);
 
       // Get conference registration stats
-      const { count: conferenceCount, error: confError } = await supabase
+      const { count: confCount } = await supabase
         .from('conference_registrations')
-        .select('*', { count: 'exact', head: true })
-        .throwOnError();
-
-      if (confError) {
-        console.error('Error fetching conference registrations:', confError);
-        throw confError;
-      }
+        .select('*', { count: 'exact', head: true });
 
       // Get tech conference registration stats
-      const { count: techConfCount, error: techConfError } = await supabase
+      const { count: techConfCount } = await supabase
         .from('tech_conference_registrations')
-        .select('*', { count: 'exact', head: true })
-        .throwOnError();
-
-      if (techConfError) {
-        console.error('Error fetching tech conference registrations:', techConfError);
-        throw techConfError;
-      }
+        .select('*', { count: 'exact', head: true });
 
       // Get nomination stats
-      const { count: nominationsCount, error: nomError } = await supabase
+      const { count: nomCount } = await supabase
+        .from('hall_of_fame_nominations')
+        .select('*', { count: 'exact', head: true });
+
+      // Get pending nominations count
+      const { count: pendingCount } = await supabase
         .from('hall_of_fame_nominations')
         .select('*', { count: 'exact', head: true })
-        .throwOnError();
+        .eq('status', 'pending');
 
-      if (nomError) {
-        console.error('Error fetching nominations:', nomError);
-        throw nomError;
-      }
+      // Get total users count
+      const { count: usersCount } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+
+      // Get upcoming events count
+      const { count: eventsCount } = await supabase
+        .from('content')
+        .select('*', { count: 'exact', head: true })
+        .eq('type', 'event')
+        .gt('date', new Date().toISOString());
 
       setStats({
-        conferenceRegistrations: conferenceCount || 0,
+        conferenceRegistrations: confCount || 0,
         techConferenceRegistrations: techConfCount || 0,
-        nominations: nominationsCount || 0
+        nominations: nomCount || 0,
+        totalUsers: usersCount || 0,
+        pendingNominations: pendingCount || 0,
+        upcomingEvents: eventsCount || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
-      setError('Failed to load dashboard statistics. Please verify your admin privileges.');
+      setError('Failed to load dashboard statistics');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/admin/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
-  const adminModules = [
-    {
-      title: 'Conference Settings',
-      description: 'Configure conference details and registration options',
-      icon: <Settings className="h-6 w-6" />,
-      link: '/admin/conference-settings',
-      color: 'bg-blue-500'
-    },
-    {
-      title: 'Tech Conference Settings',
-      description: 'Configure tech conference details and registration options',
-      icon: <Settings className="h-6 w-6" />,
-      link: '/admin/tech-conference-settings',
-      color: 'bg-purple-500'
-    },
-    {
-      title: 'Hall of Fame Settings',
-      description: 'Configure Hall of Fame nomination period and requirements',
-      icon: <Settings className="h-6 w-6" />,
-      link: '/admin/hall-of-fame-settings',
-      color: 'bg-green-500'
-    },
-    {
-      title: 'Conference Registrations',
-      description: 'View and manage conference registrations',
-      icon: <Calendar className="h-6 w-6" />,
-      link: '/admin/conference-registrations',
-      color: 'bg-orange-500'
-    },
-    {
-      title: 'Tech Conference Registrations',
-      description: 'View and manage tech conference registrations',
-      icon: <Calendar className="h-6 w-6" />,
-      link: '/admin/tech-conference-registrations',
-      color: 'bg-indigo-500'
-    },
-    {
-      title: 'Hall of Fame Nominations',
-      description: 'Review and manage Hall of Fame nominations',
-      icon: <Award className="h-6 w-6" />,
-      link: '/admin/hall-of-fame-nominations',
-      color: 'bg-yellow-500'
-    },
-    {
-      title: 'User Management',
-      description: 'Manage user accounts and permissions',
-      icon: <Users className="h-6 w-6" />,
-      link: '/admin/users',
-      color: 'bg-red-500'
-    },
-    {
-      title: 'Content Management',
-      description: 'Update website content and resources',
-      icon: <FileText className="h-6 w-6" />,
-      link: '/admin/content',
-      color: 'bg-teal-500'
-    },
-    {
-      title: 'Notifications',
-      description: 'Manage system notifications and alerts',
-      icon: <Bell className="h-6 w-6" />,
-      link: '/admin/notifications',
-      color: 'bg-pink-500'
-    }
-  ];
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-      </div>
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-16">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
+    <AdminLayout>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Welcome to the TAPT administration panel. Here's an overview of your site's activity.
+        </p>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Supabase Connection Test */}
-        <SupabaseConnectionTest />
-
-        {error && (
-          <div className="mb-8 bg-red-50 border-l-4 border-red-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                  <Calendar className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5">
-                  <p className="text-sm font-medium text-gray-500 truncate">
-                    Conference Registrations
-                  </p>
-                  <p className="mt-1 text-3xl font-semibold text-gray-900">
-                    {stats.conferenceRegistrations}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                  <Calendar className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5">
-                  <p className="text-sm font-medium text-gray-500 truncate">
-                    Tech Conference Registrations
-                  </p>
-                  <p className="mt-1 text-3xl font-semibold text-gray-900">
-                    {stats.techConferenceRegistrations}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                  <Award className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5">
-                  <p className="text-sm font-medium text-gray-500 truncate">
-                    Hall of Fame Nominations
-                  </p>
-                  <p className="mt-1 text-3xl font-semibold text-gray-900">
-                    {stats.nominations}
-                  </p>
-                </div>
-              </div>
+      {error && (
+        <div className="mb-8 bg-red-50 border-l-4 border-red-400 p-4">
+          <div className="flex">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Admin Modules Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {adminModules.map((module, index) => (
-            <Link
-              key={index}
-              to={module.link}
-              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow"
-            >
-              <div className="p-6">
-                <div className="flex items-center">
-                  <div className={`flex-shrink-0 rounded-md p-3 ${module.color}`}>
-                    {module.icon}
-                  </div>
-                  <div className="ml-5">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {module.title}
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {module.description}
-                    </p>
-                  </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {[
+          {
+            title: 'Total Users',
+            value: stats.totalUsers,
+            icon: Users,
+            color: 'bg-blue-500'
+          },
+          {
+            title: 'Conference Registrations',
+            value: stats.conferenceRegistrations,
+            icon: Calendar,
+            color: 'bg-green-500'
+          },
+          {
+            title: 'Tech Conference Registrations',
+            value: stats.techConferenceRegistrations,
+            icon: Calendar,
+            color: 'bg-purple-500'
+          },
+          {
+            title: 'Hall of Fame Nominations',
+            value: stats.nominations,
+            icon: Award,
+            color: 'bg-yellow-500'
+          },
+          {
+            title: 'Pending Nominations',
+            value: stats.pendingNominations,
+            icon: Clock,
+            color: 'bg-orange-500'
+          },
+          {
+            title: 'Upcoming Events',
+            value: stats.upcomingEvents,
+            icon: TrendingUp,
+            color: 'bg-indigo-500'
+          }
+        ].map((stat, index) => (
+          <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center">
+                <div className={`${stat.color} rounded-lg p-3`}>
+                  <stat.icon className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600 truncate">
+                    {stat.title}
+                  </p>
+                  <p className="mt-1 text-3xl font-semibold text-gray-900">
+                    {stat.value}
+                  </p>
                 </div>
               </div>
-            </Link>
-          ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Activity */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h2>
+          <div className="space-y-4">
+            {[
+              {
+                icon: CheckCircle,
+                color: 'text-green-500',
+                message: 'New conference registration submitted',
+                time: '5 minutes ago'
+              },
+              {
+                icon: Clock,
+                color: 'text-orange-500',
+                message: 'New Hall of Fame nomination received',
+                time: '1 hour ago'
+              },
+              {
+                icon: Users,
+                color: 'text-blue-500',
+                message: 'New user account created',
+                time: '2 hours ago'
+              }
+            ].map((activity, index) => (
+              <div key={index} className="flex items-center">
+                <activity.icon className={`h-5 w-5 ${activity.color}`} />
+                <div className="ml-3">
+                  <p className="text-sm text-gray-900">{activity.message}</p>
+                  <p className="text-xs text-gray-500">{activity.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </main>
-    </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              {
+                title: 'Manage Users',
+                path: '/admin/users',
+                icon: Users,
+                color: 'bg-blue-100 text-blue-600'
+              },
+              {
+                title: 'View Registrations',
+                path: '/admin/conference-registrations',
+                icon: Calendar,
+                color: 'bg-green-100 text-green-600'
+              },
+              {
+                title: 'Review Nominations',
+                path: '/admin/hall-of-fame-nominations',
+                icon: Award,
+                color: 'bg-yellow-100 text-yellow-600'
+              },
+              {
+                title: 'Manage Content',
+                path: '/admin/content',
+                icon: FileText,
+                color: 'bg-purple-100 text-purple-600'
+              }
+            ].map((action, index) => (
+              <button
+                key={index}
+                onClick={() => navigate(action.path)}
+                className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className={`p-3 rounded-lg ${action.color}`}>
+                  <action.icon className="h-6 w-6" />
+                </div>
+                <span className="mt-2 text-sm font-medium text-gray-900">
+                  {action.title}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
   );
 };

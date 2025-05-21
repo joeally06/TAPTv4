@@ -1,20 +1,34 @@
 export interface NewsItem {
-  id: number;
+  id: string;
   title: string;
+  description: string;
+  type: string;
+  status: string;
+  featured: boolean;
+  image_url: string | null;
   date: string;
   category: NewsCategory;
-  excerpt: string;
-  image: string;
+  link: string | null;
+  created_at: string;
 }
 
-export type NewsCategory = 'all' | 'announcements' | 'events' | 'safety' | 'regulations' | 'industry';
+export type NewsCategory = 'announcements' | 'events' | 'safety' | 'regulations' | 'industry';
 
 export interface CategoryOption {
-  id: NewsCategory;
+  id: NewsCategory | 'all';
   name: string;
 }
 
 export interface NewsFilters {
   searchQuery: string;
-  category: NewsCategory;
+  category: NewsCategory | 'all';
 }
+
+export const NEWS_CATEGORIES: CategoryOption[] = [
+  { id: 'all', name: 'All Categories' },
+  { id: 'announcements', name: 'Announcements' },
+  { id: 'events', name: 'Events' },
+  { id: 'safety', name: 'Safety' },
+  { id: 'regulations', name: 'Regulations' },
+  { id: 'industry', name: 'Industry News' },
+];

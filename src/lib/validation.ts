@@ -1,4 +1,4 @@
-// Validation utility functions
+import { supabase } from './supabase';
 
 export interface ValidationError {
   field: string;
@@ -26,29 +26,29 @@ export const formatPhone = (phone: string): string => {
 };
 
 export interface MembershipFormData {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  phone: string;
+  phone: string | null;
   organization: string;
   position: string;
-  membershipType: string;
-  isNewMember: string;
-  hearAboutUs: string;
+  membership_type: string;
+  is_new_member: string;
+  hear_about_us: string | null;
   interests: string[];
-  agreeToTerms: boolean;
+  agree_to_terms: boolean;
 }
 
 export const validateMembershipForm = (data: MembershipFormData): ValidationError[] => {
   const errors: ValidationError[] = [];
 
   // Required fields
-  if (!data.firstName.trim()) {
-    errors.push({ field: 'firstName', message: 'First name is required' });
+  if (!data.first_name.trim()) {
+    errors.push({ field: 'first_name', message: 'First name is required' });
   }
 
-  if (!data.lastName.trim()) {
-    errors.push({ field: 'lastName', message: 'Last name is required' });
+  if (!data.last_name.trim()) {
+    errors.push({ field: 'last_name', message: 'Last name is required' });
   }
 
   if (!data.email.trim()) {
@@ -57,7 +57,7 @@ export const validateMembershipForm = (data: MembershipFormData): ValidationErro
     errors.push({ field: 'email', message: 'Please enter a valid email address' });
   }
 
-  if (!data.phone.trim()) {
+  if (!data.phone) {
     errors.push({ field: 'phone', message: 'Phone number is required' });
   } else if (!isValidPhone(data.phone)) {
     errors.push({ field: 'phone', message: 'Please enter a valid phone number' });
@@ -71,16 +71,16 @@ export const validateMembershipForm = (data: MembershipFormData): ValidationErro
     errors.push({ field: 'position', message: 'Position is required' });
   }
 
-  if (!data.membershipType) {
-    errors.push({ field: 'membershipType', message: 'Please select a membership type' });
+  if (!data.membership_type) {
+    errors.push({ field: 'membership_type', message: 'Please select a membership type' });
   }
 
-  if (!data.isNewMember) {
-    errors.push({ field: 'isNewMember', message: 'Please indicate if you are a new member' });
+  if (!data.is_new_member) {
+    errors.push({ field: 'is_new_member', message: 'Please indicate if you are a new member' });
   }
 
-  if (!data.agreeToTerms) {
-    errors.push({ field: 'agreeToTerms', message: 'You must agree to the terms and conditions' });
+  if (!data.agree_to_terms) {
+    errors.push({ field: 'agree_to_terms', message: 'You must agree to the terms and conditions' });
   }
 
   if (data.interests.length === 0) {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Save, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
-import SupabaseConnectionTest from '../components/SupabaseConnectionTest';
+import { Calendar, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface HallOfFameSettings {
   id: string;
@@ -12,6 +12,7 @@ interface HallOfFameSettings {
   description: string;
   nomination_instructions: string;
   eligibility_criteria: string;
+  is_active: boolean;
 }
 
 export const AdminHallOfFameSettings: React.FC = () => {
@@ -21,7 +22,9 @@ export const AdminHallOfFameSettings: React.FC = () => {
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [showRolloverModal, setShowRolloverModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isRollingOver, setIsRollingOver] = useState(false);
   
   const [settings, setSettings] = useState<HallOfFameSettings>({
     id: crypto.randomUUID(),
@@ -30,7 +33,8 @@ export const AdminHallOfFameSettings: React.FC = () => {
     end_date: '',
     description: '',
     nomination_instructions: '',
-    eligibility_criteria: ''
+    eligibility_criteria: '',
+    is_active: true
   });
 
   useEffect(() => {
@@ -41,22 +45,18 @@ export const AdminHallOfFameSettings: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Checking session...');
 
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error('Session error:', sessionError);
         throw sessionError;
       }
       
       if (!session) {
-        console.log('No active session');
         navigate('/admin/login');
         return;
       }
 
-      console.log('Session found, checking user role...');
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role')
@@ -64,21 +64,17 @@ export const AdminHallOfFameSettings: React.FC = () => {
         .single();
 
       if (userError) {
-        console.error('User role check error:', userError);
         throw userError;
       }
 
       if (!userData || userData.role !== 'admin') {
-        console.log('User is not admin:', userData);
         await supabase.auth.signOut();
         navigate('/admin/login');
         return;
       }
 
-      console.log('Admin role verified, fetching settings...');
       await fetchSettings();
     } catch (error: any) {
-      console.error('Session check error:', error);
       setError(error.message);
       navigate('/admin/login');
     } finally {
@@ -91,23 +87,15 @@ export const AdminHallOfFameSettings: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching hall of fame settings...');
       const { data, error } = await supabase
         .from('hall_of_fame_settings')
         .select('*')
-        .order('created_at', { ascending: false })
+        .eq('is_active', true)
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching settings:', error);
         throw error;
       }
-
-      console.log('Settings data:', data);
-      setDebugInfo({
-        timestamp: new Date().toISOString(),
-        data: data
-      });
 
       if (data) {
         setSettings({
@@ -117,7 +105,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error in fetchSettings:', error);
       setError(`Failed to load hall of fame settings: ${error.message}`);
     } finally {
       setLoading(false);
@@ -139,8 +126,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
     setSuccess(null);
 
     try {
-      console.log('Submitting settings:', settings);
-
       const { error } = await supabase
         .from('hall_of_fame_settings')
         .upsert({
@@ -149,15 +134,12 @@ export const AdminHallOfFameSettings: React.FC = () => {
         });
 
       if (error) {
-        console.error('Error saving settings:', error);
         throw error;
       }
 
-      console.log('Settings saved successfully');
       setSuccess('Hall of Fame settings saved successfully!');
-      await fetchSettings(); // Refresh the data
+      await fetchSettings();
     } catch (error: any) {
-      console.error('Error in handleSubmit:', error);
       setError(`Failed to save hall of fame settings: ${error.message}`);
     } finally {
       setSaving(false);
@@ -165,10 +147,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
   };
 
   const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to clear all hall of fame settings? This action cannot be undone.')) {
-      return;
-    }
-
     setClearing(true);
     setError(null);
     setSuccess(null);
@@ -177,7 +155,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
       const { error } = await supabase
         .from('hall_of_fame_settings')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
       if (error) throw error;
 
@@ -189,13 +167,88 @@ export const AdminHallOfFameSettings: React.FC = () => {
         end_date: '',
         description: '',
         nomination_instructions: '',
-        eligibility_criteria: ''
+        eligibility_criteria: '',
+        is_active: true
       });
     } catch (error: any) {
-      console.error('Error clearing hall of fame settings:', error);
       setError(`Failed to clear hall of fame settings: ${error.message}`);
     } finally {
       setClearing(false);
+      setShowClearModal(false);
+    }
+  };
+
+  const handleRollover = async () => {
+    try {
+      setIsRollingOver(true);
+      setError(null);
+
+      // Validate Supabase URL
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('VITE_SUPABASE_URL is not defined in the environment');
+      }
+
+      try {
+        new URL(supabaseUrl);
+      } catch (e) {
+        throw new Error('VITE_SUPABASE_URL is invalid');
+      }
+
+      // Get current session and validate
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      
+      if (!session || !session.access_token) {
+        throw new Error('No active session or access token is missing');
+      }
+
+      // Validate dates
+      if (!settings.start_date || !settings.end_date) {
+        throw new Error('Please set all required dates before rolling over');
+      }
+
+      // Prepare new settings
+      const newSettings = {
+        ...settings,
+        id: crypto.randomUUID(),
+        start_date: settings.start_date,
+        end_date: settings.end_date,
+      };
+
+      // Call rollover function
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/rollover`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'hall-of-fame',
+            settings: newSettings,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to rollover hall of fame: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to rollover hall of fame');
+      }
+
+      setSuccess('Hall of Fame rolled over successfully! Previous nominations have been archived.');
+      await fetchSettings();
+    } catch (error: any) {
+      setError(`Failed to rollover hall of fame: ${error.message}`);
+    } finally {
+      setIsRollingOver(false);
+      setShowRolloverModal(false);
     }
   };
 
@@ -225,28 +278,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
         </div>
       </section>
 
-      {/* Debug Information */}
-      {debugInfo && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Debug Information</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Last Fetch: {new Date(debugInfo.timestamp).toLocaleString()}</p>
-                  <pre className="mt-2 overflow-auto">
-                    {JSON.stringify(debugInfo.data, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Supabase Connection Test */}
-      <SupabaseConnectionTest />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
@@ -274,9 +305,9 @@ export const AdminHallOfFameSettings: React.FC = () => {
           </div>
         )}
 
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between">
           <button
-            onClick={handleClearTable}
+            onClick={() => setShowClearModal(true)}
             disabled={clearing}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
           >
@@ -291,9 +322,17 @@ export const AdminHallOfFameSettings: React.FC = () => {
             ) : (
               <>
                 <Trash2 className="mr-2 h-5 w-5" />
-                Clear Hall of Fame Settings
+                Clear Settings
               </>
             )}
+          </button>
+
+          <button
+            onClick={() => setShowRolloverModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          >
+            <Archive className="mr-2 h-5 w-5" />
+            Rollover Hall of Fame
           </button>
         </div>
 
@@ -442,6 +481,75 @@ export const AdminHallOfFameSettings: React.FC = () => {
             </div>
           </div>
         </form>
+
+        {/* Rollover Modal */}
+        {showRolloverModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Rollover Hall of Fame</h2>
+              <p className="text-gray-600 mb-6">
+                This will archive all current nominations and create a new nomination period. Are you sure you want to continue?
+              </p>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">New Start Date</label>
+                  <input
+                    type="date"
+                    value={settings.start_date}
+                    onChange={(e) => setSettings({ ...settings, start_date: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">New End Date</label>
+                  <input
+                    type="date"
+                    value={settings.end_date}
+                    onChange={(e) => setSettings({ ...settings, end_date: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowRolloverModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRollover}
+                  disabled={isRollingOver}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {isRollingOver ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Rolling Over...
+                    </>
+                  ) : (
+                    'Confirm Rollover'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <ConfirmationModal
+          isOpen={showClearModal}
+          onClose={() => setShowClearModal(false)}
+          onConfirm={handleClearTable}
+          title="Clear Hall of Fame Settings"
+          message="Are you sure you want to clear all hall of fame settings? This action cannot be undone."
+          confirmText="Clear Settings"
+          confirmationPhrase="CLEAR SETTINGS"
+          isLoading={clearing}
+          loadingText="Clearing..."
+        />
       </div>
     </div>
   );

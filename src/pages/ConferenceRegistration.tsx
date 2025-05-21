@@ -19,6 +19,7 @@ interface ConferenceSettings {
   fee: number;
   payment_instructions: string;
   description: string;
+  is_active: boolean;
 }
 
 const ConferenceRegistration: React.FC = () => {
@@ -46,7 +47,6 @@ const ConferenceRegistration: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
-  const [showUnavailablePopup, setShowUnavailablePopup] = useState(false);
 
   useEffect(() => {
     fetchConferenceSettings();
@@ -57,34 +57,38 @@ const ConferenceRegistration: React.FC = () => {
       const { data, error } = await supabase
         .from('conference_settings')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('is_active', true)
+        .single();
 
       if (error) {
         console.error('Error fetching conference settings:', error);
         setError('Failed to load conference settings. Please try again later.');
-        setShowUnavailablePopup(true);
         return;
       }
 
       if (!data) {
-        setShowUnavailablePopup(true);
+        setError('No active conference registration is available at this time.');
         return;
       }
 
       setConferenceSettings(data);
 
       // Check if registration deadline has passed
-      if (data?.registration_end_date) {
+      if (data.registration_end_date) {
         const endDate = new Date(data.registration_end_date);
         const now = new Date();
-        setIsRegistrationClosed(now > endDate);
+        
+        if (now > endDate) {
+          setIsRegistrationClosed(true);
+          setError(`Registration closed on ${endDate.toLocaleDateString()}`);
+        } else {
+          setIsRegistrationClosed(false);
+          setError(null);
+        }
       }
     } catch (error) {
       console.error('Error:', error);
       setError('An unexpected error occurred. Please try again later.');
-      setShowUnavailablePopup(true);
     } finally {
       setLoading(false);
     }
@@ -142,6 +146,14 @@ const ConferenceRegistration: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!conferenceSettings?.is_active) {
+      setFormStatus({
+        success: false,
+        message: 'Registration is not currently available.'
+      });
+      return;
+    }
+
     if (isRegistrationClosed) {
       setFormStatus({
         success: false,
@@ -169,7 +181,8 @@ const ConferenceRegistration: React.FC = () => {
             email: formData.email,
             phone: formData.phone,
             total_attendees: formData.totalAttendees,
-            total_amount: totalAmount
+            total_amount: totalAmount,
+            conference_id: conferenceSettings?.id
           }
         ])
         .select()
@@ -233,37 +246,6 @@ const ConferenceRegistration: React.FC = () => {
 
   return (
     <div className="pt-16">
-      {/* Unavailable Popup */}
-      {showUnavailablePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center">
-                <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
-                <h2 className="text-xl font-bold text-gray-900">Registration Unavailable</h2>
-              </div>
-              <button
-                onClick={() => setShowUnavailablePopup(false)}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <p className="text-gray-600 mb-6">
-              Conference registration is not available at this time. Please check back later or contact us for more information.
-            </p>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowUnavailablePopup(false)}
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
@@ -275,7 +257,7 @@ const ConferenceRegistration: React.FC = () => {
       </section>
 
       {/* Conference Info */}
-      {!isRegistrationClosed && conferenceSettings && (
+      {!isRegistrationClosed && conferenceSettings?.is_active && (
         <section className="py-12 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -341,31 +323,15 @@ const ConferenceRegistration: React.FC = () => {
 
                 {/* Registration Deadline Notice */}
                 {conferenceSettings?.registration_end_date && (
-                  <div className={`mt-6 p-4 rounded-md ${
-                    isRegistrationClosed 
-                      ? 'bg-red-50 border border-red-200' 
-                      : 'bg-yellow-50 border border-yellow-200'
-                  }`}>
+                  <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                     <div className="flex items-start">
-                      <AlertCircle className={`h-5 w-5 ${
-                        isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
-                      }`} />
+                      <AlertCircle className="h-5 w-5 text-yellow-400" />
                       <div className="ml-3">
-                        <h3 className={`text-sm font-medium ${
-                          isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
-                        }`}>
-                          {isRegistrationClosed 
-                            ? 'Registration is closed'
-                            : 'Registration deadline approaching'
-                          }
+                        <h3 className="text-sm font-medium text-yellow-800">
+                          Registration deadline approaching
                         </h3>
-                        <p className={`mt-1 text-sm ${
-                          isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
-                        }`}>
-                          {isRegistrationClosed
-                            ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                            : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
-                          }
+                        <p className="mt-1 text-sm text-yellow-700">
+                          Registration closes on {new Date(conferenceSettings.registration_end_date).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -378,7 +344,7 @@ const ConferenceRegistration: React.FC = () => {
       )}
 
       {/* Registration Form */}
-      {isRegistrationClosed || !conferenceSettings ? (
+      {isRegistrationClosed || !conferenceSettings?.is_active ? (
         <section className="py-16">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg p-8 text-center">
@@ -388,6 +354,9 @@ const ConferenceRegistration: React.FC = () => {
                 Thank you for your interest in the TAPT Conference. Registration is currently closed. 
                 Please check back later for future events.
               </p>
+              {error && (
+                <p className="mt-4 text-red-600">{error}</p>
+              )}
             </div>
           </div>
         </section>
@@ -696,7 +665,7 @@ const ConferenceRegistration: React.FC = () => {
                   {isSubmitting ? (
                     <>
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12"cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       Processing...

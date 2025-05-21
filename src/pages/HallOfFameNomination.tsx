@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Mail, Phone, Building, Clock, Award, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, Building, Clock, Award, AlertCircle, X } from 'lucide-react';
 
 interface HallOfFameSettings {
   id: string;
@@ -10,6 +10,7 @@ interface HallOfFameSettings {
   description: string;
   nomination_instructions: string;
   eligibility_criteria: string;
+  is_active: boolean;
 }
 
 export const HallOfFameNomination: React.FC = () => {
@@ -37,6 +38,7 @@ export const HallOfFameNomination: React.FC = () => {
   const [settings, setSettings] = useState<HallOfFameSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNominationPeriodOpen, setIsNominationPeriodOpen] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -47,9 +49,8 @@ export const HallOfFameNomination: React.FC = () => {
       const { data, error } = await supabase
         .from('hall_of_fame_settings')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('is_active', true)
+        .single();
 
       if (error) {
         console.error('Error fetching hall of fame settings:', error);
@@ -57,7 +58,28 @@ export const HallOfFameNomination: React.FC = () => {
         return;
       }
 
+      if (!data) {
+        setError('Nominations are not currently open.');
+        return;
+      }
+
       setSettings(data);
+
+      // Check if we're within the nomination period
+      const now = new Date();
+      const startDate = new Date(data.start_date);
+      const endDate = new Date(data.end_date);
+      
+      if (now < startDate) {
+        setIsNominationPeriodOpen(false);
+        setError(`Nominations open on ${startDate.toLocaleDateString()}`);
+      } else if (now > endDate) {
+        setIsNominationPeriodOpen(false);
+        setError(`Nominations closed on ${endDate.toLocaleDateString()}`);
+      } else {
+        setIsNominationPeriodOpen(true);
+        setError(null);
+      }
     } catch (error) {
       console.error('Error:', error);
       setError('An unexpected error occurred. Please try again later.');
@@ -93,10 +115,18 @@ export const HallOfFameNomination: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!settings) {
+    if (!settings?.is_active) {
       setFormStatus({
         success: false,
         message: 'Nominations are currently closed.'
+      });
+      return;
+    }
+
+    if (!isNominationPeriodOpen) {
+      setFormStatus({
+        success: false,
+        message: 'The nomination period is not currently open.'
       });
       return;
     }
@@ -105,7 +135,7 @@ export const HallOfFameNomination: React.FC = () => {
     setFormStatus({});
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('hall_of_fame_nominations')
         .insert([
           {
@@ -165,7 +195,7 @@ export const HallOfFameNomination: React.FC = () => {
     );
   }
 
-  if (!settings) {
+  if (!settings?.is_active || !isNominationPeriodOpen) {
     return (
       <div className="pt-16">
         <section className="bg-secondary text-white">
@@ -180,10 +210,9 @@ export const HallOfFameNomination: React.FC = () => {
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg p-8 text-center">
               <Award className="h-16 w-16 text-primary mx-auto mb-6" />
-              <h2 className="text-2xl font-bold text-secondary mb-4">The Nomination Process is Completed</h2>
+              <h2 className="text-2xl font-bold text-secondary mb-4">The Nomination Process is Closed</h2>
               <p className="text-gray-600">
-                Thank you for your interest in the TAPT Hall of Fame. The nomination period has ended. 
-                Please check back later for the next nomination period.
+                {error || 'Thank you for your interest in the TAPT Hall of Fame. The nomination period has ended. Please check back later for the next nomination period.'}
               </p>
             </div>
           </div>
@@ -224,19 +253,19 @@ export const HallOfFameNomination: React.FC = () => {
               <div className="flex">
                 <div className="flex-shrink-0">
                   {formStatus.success ? (
-                    <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   ) : (
-                    <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                     </svg>
                   )}
                 </div>
                 <div className="ml-3">
-                  <h3 className={`text-sm font-medium ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
+                  <p className={`text-sm ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
                     {formStatus.message}
-                  </h3>
+                  </p>
                 </div>
               </div>
             </div>
@@ -518,7 +547,7 @@ export const HallOfFameNomination: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Submitting...
+                    Processing...
                   </>
                 ) : (
                   <>

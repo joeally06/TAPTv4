@@ -74,7 +74,14 @@ export const Navbar = () => {
 
   const navItems = [
     { name: 'Home', path: '/' },
-    { name: 'About', path: '/about' },
+    { 
+      name: 'About', 
+      path: '/about',
+      subItems: [
+        { name: 'Board Members', path: '/board-members' },
+        { name: 'Contact', path: '/contact' }
+      ]
+    },
     { name: 'Resources', path: '/resources' },
     { name: 'News', path: '/news' },
     { 
@@ -86,7 +93,6 @@ export const Navbar = () => {
       ]
     },
     { name: 'Members', path: '/members' },
-    { name: 'Contact', path: '/contact' },
     { 
       name: 'Hall of Fame',
       path: '/hall-of-fame',
@@ -100,6 +106,7 @@ export const Navbar = () => {
   const adminItems = [
     { name: 'Dashboard', path: '/admin' },
     { name: 'Users', path: '/admin/users' },
+    { name: 'Board Members', path: '/admin/board-members' },
     { name: 'Conference Settings', path: '/admin/conference-settings' },
     { name: 'Conference Registrations', path: '/admin/conference-registrations' },
     { name: 'Tech Conference Settings', path: '/admin/tech-conference-settings' },
