@@ -10,6 +10,7 @@ export interface NewsItem {
   category: NewsCategory;
   link: string | null;
   created_at: string;
+  is_featured: boolean;
 }
 
 export type NewsCategory = 'announcements' | 'events' | 'safety' | 'regulations' | 'industry';
