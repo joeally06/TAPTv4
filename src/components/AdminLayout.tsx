@@ -10,7 +10,9 @@ import {
   LogOut,
   Menu,
   X,
-  Archive
+  Archive,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -20,6 +22,7 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,6 +35,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     }
   };
 
+  const toggleMenu = (menuName: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuName]: !prev[menuName]
+    }));
+  };
+
   const menuItems = [
     {
       name: 'Dashboard',
@@ -41,7 +51,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       name: 'Settings',
       icon: Settings,
-      path: '/admin/settings',
       submenu: [
         { name: 'Conference', path: '/admin/conference-settings' },
         { name: 'Tech Conference', path: '/admin/tech-conference-settings' },
@@ -61,7 +70,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       name: 'Content',
       icon: FileText,
-      path: '/admin/content',
       submenu: [
         { name: 'News & Events', path: '/admin/content' },
         { name: 'Board Members', path: '/admin/board-members' },
@@ -71,7 +79,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       name: 'Registrations',
       icon: Calendar,
-      path: '/admin/registrations',
       submenu: [
         { name: 'Conference', path: '/admin/conference-registrations' },
         { name: 'Tech Conference', path: '/admin/tech-conference-registrations' }
@@ -80,7 +87,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       name: 'Hall of Fame',
       icon: Award,
-      path: '/admin/hall-of-fame',
       submenu: [
         { name: 'Members', path: '/admin/hall-of-fame-members' },
         { name: 'Nominations', path: '/admin/hall-of-fame-nominations' }
@@ -98,6 +104,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       return location.pathname === path;
     }
     return location.pathname.startsWith(path);
+  };
+
+  const isSubmenuActive = (submenu: { name: string; path: string }[]) => {
+    return submenu.some(item => location.pathname.startsWith(item.path));
   };
 
   return (
@@ -123,37 +133,62 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <h1 className="text-2xl font-bold text-white">TAPT Admin</h1>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-1">
             {menuItems.map((item) => (
               <div key={item.name}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center px-2 py-2 text-base font-medium rounded-lg ${
-                    isActive(item.path)
-                      ? 'bg-primary text-white'
-                      : 'text-gray-300 hover:bg-primary/20 hover:text-white'
-                  }`}
-                >
-                  <item.icon className="h-5 w-5 mr-3" />
-                  {item.name}
-                </Link>
+                {item.submenu ? (
+                  <div>
+                    <button
+                      onClick={() => toggleMenu(item.name)}
+                      className={`flex items-center justify-between w-full px-2 py-2 text-base font-medium rounded-lg ${
+                        isSubmenuActive(item.submenu)
+                          ? 'bg-primary text-white'
+                          : 'text-gray-300 hover:bg-primary/20 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <item.icon className="h-5 w-5 mr-3" />
+                        {item.name}
+                      </div>
+                      {expandedMenus[item.name] ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
 
-                {item.submenu && (
-                  <div className="ml-6 mt-2 space-y-1">
-                    {item.submenu.map((subItem) => (
-                      <Link
-                        key={subItem.path}
-                        to={subItem.path}
-                        className={`block px-3 py-2 text-sm font-medium rounded-lg ${
-                          location.pathname === subItem.path
-                            ? 'bg-primary text-white'
-                            : 'text-gray-300 hover:bg-primary/20 hover:text-white'
-                        }`}
-                      >
-                        {subItem.name}
-                      </Link>
-                    ))}
+                    <div
+                      className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-200 ${
+                        expandedMenus[item.name] ? 'max-h-96' : 'max-h-0'
+                      }`}
+                    >
+                      {item.submenu.map((subItem) => (
+                        <Link
+                          key={subItem.path}
+                          to={subItem.path}
+                          className={`block px-3 py-2 text-sm font-medium rounded-lg ${
+                            location.pathname === subItem.path
+                              ? 'bg-primary text-white'
+                              : 'text-gray-300 hover:bg-primary/20 hover:text-white'
+                          }`}
+                        >
+                          {subItem.name}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
+                ) : (
+                  <Link
+                    to={item.path}
+                    className={`flex items-center px-2 py-2 text-base font-medium rounded-lg ${
+                      isActive(item.path)
+                        ? 'bg-primary text-white'
+                        : 'text-gray-300 hover:bg-primary/20 hover:text-white'
+                    }`}
+                  >
+                    <item.icon className="h-5 w-5 mr-3" />
+                    {item.name}
+                  </Link>
                 )}
               </div>
             ))}
