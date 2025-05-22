@@ -73,6 +73,51 @@ Deno.serve(async (req) => {
       throw new Error('Invalid email format');
     }
 
+    // Validate years of service
+    if (payload.years_of_service < 0 || payload.years_of_service > 100) {
+      throw new Error('Invalid years of service');
+    }
+
+    // Validate nomination reason length
+    if (payload.nomination_reason.length > 500) {
+      throw new Error('Nomination reason exceeds maximum length of 500 characters');
+    }
+
+    // Check for rate limiting
+    const rateLimitKey = `nomination_${payload.supervisor_email}`;
+    const { data: rateLimit } = await supabaseAdmin
+      .from('rate_limits')
+      .select('count, last_attempt')
+      .eq('key', rateLimitKey)
+      .single();
+
+    const now = new Date();
+    const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    if (rateLimit) {
+      if (new Date(rateLimit.last_attempt) > hourAgo && rateLimit.count >= 3) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+
+      // Update rate limit
+      await supabaseAdmin
+        .from('rate_limits')
+        .upsert({
+          key: rateLimitKey,
+          count: new Date(rateLimit.last_attempt) > hourAgo ? rateLimit.count + 1 : 1,
+          last_attempt: now.toISOString()
+        });
+    } else {
+      // Create new rate limit entry
+      await supabaseAdmin
+        .from('rate_limits')
+        .insert({
+          key: rateLimitKey,
+          count: 1,
+          last_attempt: now.toISOString()
+        });
+    }
+
     // Check if nomination period is open
     const { data: settings, error: settingsError } = await supabaseAdmin
       .from('hall_of_fame_settings')
@@ -88,7 +133,6 @@ Deno.serve(async (req) => {
       throw new Error('Nominations are not currently open');
     }
 
-    const now = new Date();
     const startDate = new Date(settings.start_date);
     const endDate = new Date(settings.end_date);
 
@@ -98,6 +142,22 @@ Deno.serve(async (req) => {
 
     if (now > endDate) {
       throw new Error(`Nominations closed on ${endDate.toLocaleDateString()}`);
+    }
+
+    // Check for duplicate nominations
+    const { count: existingCount, error: duplicateError } = await supabaseAdmin
+      .from('hall_of_fame_nominations')
+      .select('*', { count: 'exact', head: true })
+      .eq('nominee_first_name', payload.nominee_first_name)
+      .eq('nominee_last_name', payload.nominee_last_name)
+      .eq('district', payload.district);
+
+    if (duplicateError) {
+      throw new Error('Failed to check for duplicate nominations');
+    }
+
+    if (existingCount && existingCount > 0) {
+      throw new Error('A nomination for this person already exists');
     }
 
     // Insert nomination
