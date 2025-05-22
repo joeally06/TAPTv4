@@ -135,10 +135,20 @@ export const HallOfFameNomination: React.FC = () => {
     setFormStatus({});
 
     try {
-      const { error } = await supabase
-        .from('hall_of_fame_nominations')
-        .insert([
-          {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('VITE_SUPABASE_URL is not defined');
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/submit-hof-nomination`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
             nominee_first_name: formData.nomineeFirstName,
             nominee_last_name: formData.nomineeLastName,
             district: formData.district,
@@ -149,12 +159,16 @@ export const HallOfFameNomination: React.FC = () => {
             supervisor_last_name: formData.supervisorLastName,
             supervisor_email: formData.supervisorEmail,
             nominee_city: formData.nomineeCity,
-            region: formData.region,
-            status: 'pending'
-          }
-        ]);
+            region: formData.region
+          }),
+        }
+      );
 
-      if (error) throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit nomination');
+      }
 
       setFormStatus({
         success: true,
@@ -180,7 +194,7 @@ export const HallOfFameNomination: React.FC = () => {
       console.error('Error submitting nomination:', error);
       setFormStatus({
         success: false,
-        message: `Error submitting nomination: ${error.message}`
+        message: error.message || 'Failed to submit nomination. Please try again.'
       });
     } finally {
       setIsSubmitting(false);
