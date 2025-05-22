@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { verifyUserRole } from '../lib/supabase';
 
 export default function AdminTestComponent() {
   const [log, setLog] = useState<string[]>([]);
@@ -10,8 +9,8 @@ export default function AdminTestComponent() {
   useEffect(() => {
     async function testAuthAndRole() {
       const addLog = (message: string) => {
-        console.log(message); // Also log to console for debugging
-        setLog(prev => [...prev, `${new Date().toISOString()}: ${message}`]);
+        console.log(message);
+        setLog(prev => [...prev, message]);
       };
 
       try {
@@ -74,53 +73,65 @@ export default function AdminTestComponent() {
 
         // Check user role
         addLog('Checking user role...');
-        const role = await verifyUserRole(user.id);
-        addLog(`User role: ${role || 'none'}`);        // Make user admin if not already
-        if (role !== 'admin') {
-          addLog('Attempting to make user admin...');
-          
-          // First check if any admin exists
-          const { data: adminCount, error: adminCountError } = await supabase
-            .from('users')
-            .select('count')
-            .eq('role', 'admin')
-            .single();
-
-          if (adminCountError) {
-            addLog(`Error checking admin count: ${adminCountError.message}`);
-          } else if (!adminCount?.count) {
-            // No admin exists, directly update this user to be admin
-            const { error: updateError } = await supabase
-              .from('users')
-              .update({ role: 'admin' })
-              .eq('id', user.id);
-
-            if (updateError) {
-              addLog(`Failed to make user admin: ${updateError.message}`);
-            } else {
-              addLog('Successfully made user admin via direct update');
-            }
-          } else {
-            addLog('An admin user already exists');
-          }
-
-          // Verify the role change
-          const newRole = await verifyUserRole(user.id);
-          addLog(`New user role: ${newRole || 'none'}`);
-        }
-
-        // Check users table data
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('*')
+          .select('role')
           .eq('id', user.id)
           .single();
 
         if (userError) {
-          addLog(`Error fetching user data: ${userError.message}`);
+          addLog(`Error checking user record: ${userError.message}`);
         } else {
-          addLog(`User data: ${JSON.stringify(userData)}`);
-        }      } catch (error) {
+          addLog(`User role: ${userData?.role || 'none'}`);
+        }
+
+        // Make user admin if not already
+        if (!userData?.role || userData.role !== 'admin') {
+          addLog('Attempting to make user admin...');
+          
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          if (!supabaseUrl) {
+            throw new Error('VITE_SUPABASE_URL is not defined');
+          }
+
+          const response = await fetch(
+            `${supabaseUrl}/functions/v1/admin-role`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              },
+              body: JSON.stringify({ userId: user.id }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to assign admin role');
+          }
+
+          const result = await response.json();
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to assign admin role');
+          }
+
+          addLog('Successfully made user admin via Edge Function');
+        }
+
+        // Verify the role change
+        const { data: updatedUserData, error: verifyError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (verifyError) {
+          addLog(`Error verifying role: ${verifyError.message}`);
+        } else {
+          addLog(`Updated user role: ${updatedUserData?.role || 'none'}`);
+        }
+      } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         addLog(`Test failed: ${msg}`);
         console.error('Test failed:', error);
@@ -132,6 +143,7 @@ export default function AdminTestComponent() {
 
     testAuthAndRole();
   }, []);
+
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Testing User Creation and Role Verification</h1>
