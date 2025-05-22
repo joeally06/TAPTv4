@@ -147,3 +147,5 @@ export default function Members() {
     </div>
   );
 }
+
+export { Members }
