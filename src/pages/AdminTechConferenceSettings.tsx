@@ -31,7 +31,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
   const [isRollingOver, setIsRollingOver] = useState(false);
   
   const [settings, setSettings] = useState<TechConferenceSettings>({
-    id: '',
+    id: generateUUID(),
     name: '',
     start_date: '',
     end_date: '',
@@ -46,12 +46,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
 
   useEffect(() => {
     checkSession();
-    generateUUID().then(uuid => {
-      setSettings(prev => ({ ...prev, id: uuid }));
-    }).catch(error => {
-      setError('Failed to generate unique identifier');
-      console.error('UUID generation error:', error);
-    });
   }, []);
 
   const checkSession = async () => {
@@ -177,7 +171,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
 
       setSuccess('Tech conference settings cleared successfully!');
       setSettings({
-        id: '',
+        id: generateUUID(),
         name: '',
         start_date: '',
         end_date: '',
@@ -188,10 +182,6 @@ export const AdminTechConferenceSettings: React.FC = () => {
         payment_instructions: '',
         description: '',
         is_active: true
-      });
-
-      generateUUID().then(uuid => {
-        setSettings(prev => ({ ...prev, id: uuid }));
       });
     } catch (error: any) {
       setError(`Failed to clear tech conference settings: ${error.message}`);
@@ -230,7 +220,7 @@ export const AdminTechConferenceSettings: React.FC = () => {
 
       const newSettings = {
         ...settings,
-        id: await generateUUID(),
+        id: generateUUID(),
         start_date: settings.start_date,
         end_date: settings.end_date,
         registration_end_date: settings.registration_end_date,
