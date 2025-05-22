@@ -28,7 +28,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
   const [isRollingOver, setIsRollingOver] = useState(false);
   
   const [settings, setSettings] = useState<HallOfFameSettings>({
-    id: '',
+    id: generateUUID(),
     name: '',
     start_date: '',
     end_date: '',
@@ -40,13 +40,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
 
   useEffect(() => {
     checkSession();
-    // Generate UUID when component mounts
-    generateUUID().then(uuid => {
-      setSettings(prev => ({ ...prev, id: uuid }));
-    }).catch(error => {
-      setError('Failed to generate unique identifier');
-      console.error('UUID generation error:', error);
-    });
   }, []);
 
   const checkSession = async () => {
@@ -169,7 +162,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
 
       setSuccess('Hall of Fame settings cleared successfully!');
       setSettings({
-        id: '',
+        id: generateUUID(),
         name: '',
         start_date: '',
         end_date: '',
@@ -177,14 +170,6 @@ export const AdminHallOfFameSettings: React.FC = () => {
         nomination_instructions: '',
         eligibility_criteria: '',
         is_active: true
-      });
-      
-      // Generate new UUID after clearing
-      generateUUID().then(uuid => {
-        setSettings(prev => ({ ...prev, id: uuid }));
-      }).catch(error => {
-        setError('Failed to generate unique identifier');
-        console.error('UUID generation error:', error);
       });
     } catch (error: any) {
       setError(`Failed to clear hall of fame settings: ${error.message}`);
@@ -227,7 +212,7 @@ export const AdminHallOfFameSettings: React.FC = () => {
       // Prepare new settings
       const newSettings = {
         ...settings,
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         start_date: settings.start_date,
         end_date: settings.end_date,
       };
