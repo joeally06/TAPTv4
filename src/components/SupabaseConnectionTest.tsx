@@ -21,14 +21,18 @@ const SupabaseConnectionTest = () => {
           setConnectionStatus({
             tested: true,
             success: true,
-            message: 'Successfully connected to Supabase!'
+            message: 'Successfully connected to database'
           });
         } else {
+          console.error('Connection test failed:', result.error);
           setConnectionStatus({
             tested: true,
             success: false,
-            message: 'Failed to connect to Supabase.',
-            error: result.error
+            message: 'Unable to connect to the database. Please try again later.',
+            error: {
+              networkBlocked: result.error?.message?.includes('Failed to fetch') || 
+                            result.error?.message?.includes('Network request failed')
+            }
           });
         }
       } catch (error) {
@@ -36,17 +40,18 @@ const SupabaseConnectionTest = () => {
         setConnectionStatus({
           tested: true,
           success: false,
-          message: 'An error occurred while testing the connection.',
-          error
+          message: 'An unexpected error occurred. Please try again later.',
+          error: { networkBlocked: false }
         });
       }
     };
 
     testConnection();
   }, []);
+
   return (
     <div className="fixed bottom-16 right-4 p-6 max-w-md bg-white rounded-lg shadow-md z-50">
-      <h2 className="text-2xl font-bold text-secondary mb-4">Supabase Connection Test</h2>
+      <h2 className="text-2xl font-bold text-secondary mb-4">Connection Status</h2>
       {!connectionStatus.tested ? (
         <div className="flex items-center justify-center">
           <div className="w-8 h-8 border-t-4 border-primary rounded-full animate-spin"></div>
@@ -79,22 +84,15 @@ const SupabaseConnectionTest = () => {
               <p className="text-sm leading-5 font-medium text-red-800">
                 {connectionStatus.message}
               </p>
-              {connectionStatus.error && (
+              {connectionStatus.error?.networkBlocked && (
                 <div className="mt-2 text-sm bg-red-50 p-3 rounded">
-                  {connectionStatus.error.networkBlocked ? (
-                    <div>
-                      <p className="font-semibold">Network Access Blocked</p>
-                      <p>Your network appears to be blocking access to Supabase. This is common on school or corporate networks.</p>
-                      <p className="mt-2">Possible solutions:</p>
-                      <ul className="list-disc list-inside mt-1">
-                        <li>Try using a different network connection</li>
-                        <li>Contact your network administrator to allow access to *.supabase.co</li>
-                        <li>Use a mobile hotspot for development</li>
-                      </ul>
-                    </div>
-                  ) : (
-                    <p>Error details: {connectionStatus.error.message || JSON.stringify(connectionStatus.error)}</p>
-                  )}
+                  <p className="font-semibold">Connection Issue Detected</p>
+                  <p>We're having trouble connecting to our services. This might be due to:</p>
+                  <ul className="list-disc list-inside mt-1">
+                    <li>Network connectivity issues</li>
+                    <li>Firewall or security settings</li>
+                    <li>Temporary service disruption</li>
+                  </ul>
                 </div>
               )}
             </div>
@@ -103,10 +101,10 @@ const SupabaseConnectionTest = () => {
       )}
 
       <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">Environment Variables:</h3>
+        <h3 className="text-lg font-semibold mb-2">Configuration Status</h3>
         <div className="bg-gray-100 p-3 rounded">
-          <p className="mb-1"><strong>VITE_SUPABASE_URL:</strong> {import.meta.env.VITE_SUPABASE_URL ? '✓ Set' : '✗ Missing'}</p>
-          <p><strong>VITE_SUPABASE_ANON_KEY:</strong> {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ Set' : '✗ Missing'}</p>
+          <p className="mb-1"><strong>Database URL:</strong> {import.meta.env.VITE_SUPABASE_URL ? '✓ Configured' : '✗ Missing'}</p>
+          <p><strong>API Key:</strong> {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ Configured' : '✗ Missing'}</p>
         </div>
       </div>
     </div>
