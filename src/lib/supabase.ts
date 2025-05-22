@@ -79,11 +79,10 @@ export const verifyUserRole = async (userId: string): Promise<string | null> => 
       return null;
     }
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .maybeSingle();
+    // Use RPC call to avoid RLS recursion
+    const { data, error } = await supabase.rpc('get_user_role', {
+      user_id: userId
+    });
 
     if (error) {
       console.error('Error fetching user role:', error);
@@ -95,8 +94,8 @@ export const verifyUserRole = async (userId: string): Promise<string | null> => 
       return null;
     }
 
-    console.log('User role found:', data.role);
-    return data.role;
+    console.log('User role found:', data);
+    return data;
 
   } catch (error) {
     console.error('Error in verifyUserRole:', error);
