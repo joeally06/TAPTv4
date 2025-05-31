@@ -1,88 +1,66 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Download, FileText, Book, FileCheck, Folder } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { 
   RESOURCE_CATEGORIES, 
-  getResourceUrl, 
-  type Resource,
   type ResourceCategory,
-  type ResourceType
 } from '../lib/config';
 
-export const Resources: React.FC = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+interface Resource {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+  updated_at: string;
+}
 
+export const Resources: React.FC = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<ResourceCategory>('all');
+  const [resources, setResources] = useState<Resource[]>([]);
 
-  const resourceItems: Resource[] = [
-    {
-      id: 'handbook',
-      title: "School Bus Driver Handbook",
-      category: "manuals",
-      description: "Comprehensive guide for school bus drivers covering operations, safety, and best practices.",
-      date: "January 2023",
-      type: "PDF",
-      size: "4.2 MB",
-      path: "driver-handbook.pdf"
-    },
-    {
-      id: 'checklist',
-      title: "Pre-Trip Inspection Checklist",
-      category: "forms",
-      description: "Daily pre-trip inspection form for school bus drivers to ensure vehicle safety.",
-      date: "February 2023",
-      type: "PDF",
-      size: "215 KB",
-      path: "pre-trip-checklist.pdf"
-    },
-    {
-      id: 'laws',
-      title: "Tennessee Pupil Transportation Laws",
-      category: "laws",
-      description: "Complete compilation of Tennessee laws pertaining to student transportation.",
-      date: "March 2023",
-      type: "PDF",
-      size: "2.8 MB",
-      path: "tn-transportation-laws.pdf"
-    },
-    {
-      id: 'evacuation',
-      title: "Emergency Evacuation Procedures",
-      category: "training",
-      description: "Step-by-step guide for conducting emergency evacuations from school buses.",
-      date: "April 2023",
-      type: "PDF",
-      size: "1.5 MB",
-      path: "evacuation-procedures.pdf"
-    },
-    {
-      id: 'management',
-      title: "Student Management Techniques",
-      category: "training",
-      description: "Effective strategies for managing student behavior on school buses.",
-      date: "May 2023",
-      type: "PDF",
-      size: "950 KB",
-      path: "student-management.pdf"
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    fetchResources();
+  }, []);
+
+  const fetchResources = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('resources')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setResources(data || []);
+    } catch (err) {
+      console.error('Error fetching resources:', err);
+      setError('Failed to load resources');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const handleDownload = async (resource: Resource) => {
     try {
-      const resourceUrl = getResourceUrl(resource.path);
-      
       // First check if the resource exists
-      const checkResponse = await fetch(resourceUrl, { method: 'HEAD' });
+      const checkResponse = await fetch(resource.file_url, { method: 'HEAD' });
       if (!checkResponse.ok) {
         throw new Error('Resource not found');
       }
 
       // Trigger download
       const link = document.createElement('a');
-      link.href = resourceUrl;
-      link.download = resource.path.split('/').pop() || resource.title;
+      link.href = resource.file_url;
+      link.download = resource.title;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -92,7 +70,7 @@ export const Resources: React.FC = () => {
     }
   };
 
-  const filteredResources = resourceItems.filter(resource => {
+  const filteredResources = resources.filter(resource => {
     const matchesSearch = searchQuery === '' || 
       resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       resource.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -119,6 +97,14 @@ export const Resources: React.FC = () => {
     }
   };
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="pt-16">
       {/* Hero Section */}
@@ -140,9 +126,7 @@ export const Resources: React.FC = () => {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 {/* Search Bar */}
                 <div className="relative max-w-md w-full">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                  </div>
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
                     type="text"
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-primary focus:border-primary transition duration-150 ease-in-out"
@@ -188,37 +172,49 @@ export const Resources: React.FC = () => {
             
             {/* Results */}
             <div className="space-y-6">
-              <div className="text-sm text-gray-600 mb-4">
-                {filteredResources.length === 0 ? 'No resources found' : `Showing ${filteredResources.length} resources`}
-              </div>
-              
-              <div className="divide-y divide-gray-200">
-                {filteredResources.map((resource, index) => (
-                  <div key={index} className="py-6 flex flex-col md:flex-row md:items-center">
-                    <div className="flex-shrink-0 mr-4 mb-4 md:mb-0 bg-primary/10 p-4 rounded-md">
-                      {getCategoryIcon(resource.category)}
-                    </div>
-                    <div className="flex-grow">
-                      <h3 className="text-lg font-semibold text-secondary">{resource.title}</h3>
-                      <p className="text-gray-600 mb-2">{resource.description}</p>
-                      <div className="flex flex-wrap items-center text-sm text-gray-500 gap-x-4">
-                        <span>Updated: {resource.date}</span>
-                        <span>{resource.type}</span>
-                        <span>{resource.size}</span>
-                      </div>
-                    </div>
-                    <div className="mt-4 md:mt-0 flex-shrink-0">
-                      <button
-                        onClick={() => handleDownload(resource)}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                      </button>
-                    </div>
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                </div>
+              ) : error ? (
+                <div className="text-center py-12">
+                  <p className="text-red-600">{error}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="text-sm text-gray-600 mb-4">
+                    {filteredResources.length === 0 ? 'No resources found' : `Showing ${filteredResources.length} resources`}
                   </div>
-                ))}
-              </div>
+                  
+                  <div className="divide-y divide-gray-200">
+                    {filteredResources.map((resource) => (
+                      <div key={resource.id} className="py-6 flex flex-col md:flex-row md:items-center">
+                        <div className="flex-shrink-0 mr-4 mb-4 md:mb-0 bg-primary/10 p-4 rounded-md">
+                          {getCategoryIcon(resource.category)}
+                        </div>
+                        <div className="flex-grow">
+                          <h3 className="text-lg font-semibold text-secondary">{resource.title}</h3>
+                          <p className="text-gray-600 mb-2">{resource.description}</p>
+                          <div className="flex flex-wrap items-center text-sm text-gray-500 gap-x-4">
+                            <span>Updated: {new Date(resource.updated_at).toLocaleDateString()}</span>
+                            <span>{resource.file_type.toUpperCase()}</span>
+                            <span>{formatFileSize(resource.file_size)}</span>
+                          </div>
+                        </div>
+                        <div className="mt-4 md:mt-0 flex-shrink-0">
+                          <button
+                            onClick={() => handleDownload(resource)}
+                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -233,12 +229,12 @@ export const Resources: React.FC = () => {
               <p className="text-lg text-gray-600 mb-8">
                 If you can't find what you're looking for, our team is here to help. Contact us with your resource request.
               </p>
-              <a
-                href="/contact"
+              <Link
+                to="/contact"
                 className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               >
                 Request a Resource
-              </a>
+              </Link>
             </div>
           </div>
         </div>

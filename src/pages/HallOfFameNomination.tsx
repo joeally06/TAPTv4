@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Mail, Phone, Building, Clock, Award } from 'lucide-react';
+import { User, Mail, Phone, Building, Clock, Award, AlertCircle, X } from 'lucide-react';
+
+interface HallOfFameSettings {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  description: string;
+  nomination_instructions: string;
+  eligibility_criteria: string;
+  is_active: boolean;
+}
 
 export const HallOfFameNomination: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -24,28 +35,107 @@ export const HallOfFameNomination: React.FC = () => {
     message?: string;
   }>({});
 
+  const [settings, setSettings] = useState<HallOfFameSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isNominationPeriodOpen, setIsNominationPeriodOpen] = useState(false);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hall_of_fame_settings')
+        .select('*')
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        console.error('Error fetching hall of fame settings:', error);
+        setError('Failed to load settings. Please try again later.');
+        return;
+      }
+
+      if (!data) {
+        setError('Nominations are not currently open.');
+        return;
+      }
+
+      setSettings(data);
+
+      // Check if we're within the nomination period
+      const now = new Date();
+      const startDate = new Date(data.start_date);
+      const endDate = new Date(data.end_date);
+      
+      if (now < startDate) {
+        setIsNominationPeriodOpen(false);
+        setError(`Nominations open on ${startDate.toLocaleDateString()}`);
+      } else if (now > endDate) {
+        setIsNominationPeriodOpen(false);
+        setError(`Nominations closed on ${endDate.toLocaleDateString()}`);
+      } else {
+        setIsNominationPeriodOpen(true);
+        setError(null);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('An unexpected error occurred. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
     } else if (name === 'supervisorPhone') {
       // Only allow numbers and limit to 10 digits
       const numbersOnly = value.replace(/\D/g, '').slice(0, 10);
-      setFormData(prev => ({ ...prev, [name]: numbersOnly }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: numbersOnly
+      }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!settings?.is_active) {
+      setFormStatus({
+        success: false,
+        message: 'Nominations are currently closed.'
+      });
+      return;
+    }
+
+    if (!isNominationPeriodOpen) {
+      setFormStatus({
+        success: false,
+        message: 'The nomination period is not currently open.'
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setFormStatus({});
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('hall_of_fame_nominations')
         .insert([
           {
@@ -59,7 +149,8 @@ export const HallOfFameNomination: React.FC = () => {
             supervisor_last_name: formData.supervisorLastName,
             supervisor_email: formData.supervisorEmail,
             nominee_city: formData.nomineeCity,
-            region: formData.region
+            region: formData.region,
+            status: 'pending'
           }
         ]);
 
@@ -96,39 +187,85 @@ export const HallOfFameNomination: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!settings?.is_active || !isNominationPeriodOpen) {
+    return (
+      <div className="pt-16">
+        <section className="bg-secondary text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
+            <div className="max-w-3xl">
+              <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Hall of Fame Nomination</h1>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <Award className="h-16 w-16 text-primary mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-secondary mb-4">The Nomination Process is Closed</h2>
+              <p className="text-gray-600">
+                {error || 'Thank you for your interest in the TAPT Hall of Fame. The nomination period has ended. Please check back later for the next nomination period.'}
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-16">
-      {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Hall of Fame Nomination</h1>
-            <p className="text-xl text-gray-200 mb-8 fade-in">Nominate an outstanding transportation professional for the TAPT Hall of Fame.</p>
+            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">{settings.name}</h1>
+            <p className="text-xl text-gray-200 mb-8 fade-in">{settings.description}</p>
           </div>
         </div>
       </section>
 
-      {/* Nomination Form */}
       <section className="py-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          {settings.nomination_instructions && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-semibold text-blue-800 mb-2">Nomination Instructions</h3>
+              <p className="text-blue-700">{settings.nomination_instructions}</p>
+            </div>
+          )}
+
+          {settings.eligibility_criteria && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Eligibility Criteria</h3>
+              <p className="text-gray-700">{settings.eligibility_criteria}</p>
+            </div>
+          )}
+
           {formStatus.message && (
             <div className={`mb-8 p-4 rounded-md ${formStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <div className="flex">
                 <div className="flex-shrink-0">
                   {formStatus.success ? (
-                    <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   ) : (
-                    <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                     </svg>
                   )}
                 </div>
                 <div className="ml-3">
-                  <h3 className={`text-sm font-medium ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
+                  <p className={`text-sm ${formStatus.success ? 'text-green-800' : 'text-red-800'}`}>
                     {formStatus.message}
-                  </h3>
+                  </p>
                 </div>
               </div>
             </div>
@@ -410,7 +547,7 @@ export const HallOfFameNomination: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Submitting...
+                    Processing...
                   </>
                 ) : (
                   <>
@@ -426,3 +563,5 @@ export const HallOfFameNomination: React.FC = () => {
     </div>
   );
 };
+
+export default HallOfFameNomination;

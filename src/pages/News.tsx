@@ -1,41 +1,102 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronDown, Search, Tag } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { NewsItem, NewsCategory, CategoryOption, NewsFilters } from '../lib/types/news';
+import { supabase } from '../lib/supabase';
+import type { NewsFilters } from '../lib/types/news';
+
+interface NewsItem {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  status: string;
+  featured: boolean;
+  image_url: string | null;
+  date: string;
+  category: string;
+  link: string | null;
+  created_at: string;
+}
+
+interface CategoryOption {
+  id: string;
+  name: string;
+}
 
 const NewsCard: React.FC<{ item: NewsItem; categoryName: string }> = React.memo(({ item, categoryName }) => (
   <article className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all">
-    <img src={item.image} alt="" className="w-full h-48 object-cover" />
+    {item.image_url && (
+      <img src={item.image_url} alt="" className="w-full h-48 object-cover" />
+    )}
     <div className="p-6">
       <div className="flex items-center text-sm text-gray-500 mb-4">
         <Calendar className="h-4 w-4 mr-2" />
-        {item.date}
+        {new Date(item.date || item.created_at).toLocaleDateString()}
         <Tag className="h-4 w-4 ml-4 mr-2" />
         {categoryName}
       </div>
       <h2 className="text-xl font-bold text-secondary mb-2">{item.title}</h2>
-      <p className="text-gray-600 mb-4">{item.excerpt}</p>
-      <Link
-        to={`/news/${item.id}`}
-        className="text-primary hover:text-primary/80 font-medium"
-      >
-        Read More →
-      </Link>
+      <p className="text-gray-600 mb-4">{item.description}</p>
+      {item.link ? (
+        <a
+          href={item.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:text-primary/80 font-medium"
+        >
+          Read More →
+        </a>
+      ) : (
+        <Link
+          to={`/news/${item.id}`}
+          className="text-primary hover:text-primary/80 font-medium"
+        >
+          Read More →
+        </Link>
+      )}
     </div>
   </article>
 ));
 
 export const News: React.FC = () => {
-  // Initialize scroll position
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
 
   // Combined filters state to prevent race conditions
   const [filters, setFilters] = useState<NewsFilters>({
     searchQuery: '',
     category: 'all'
   });
+
+  // Fetch news items from Supabase
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('content')
+          .select('*')
+          .eq('type', 'news')
+          .eq('status', 'published')
+          .order('date', { ascending: false, nullsLast: true });
+
+        if (error) throw error;
+        setNewsItems(data || []);
+      } catch (err) {
+        console.error('Error fetching news:', err);
+        setError('Failed to load news items');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNews();
+  }, []);
 
   // Memoized categories
   const categories: CategoryOption[] = useMemo(() => [
@@ -54,74 +115,6 @@ export const News: React.FC = () => {
       return acc;
     }, {} as Record<string, string>);
   }, [categories]);
-
-  // Memoized news items
-  const newsItems: NewsItem[] = useMemo(() => [
-    {
-      id: 1,
-      title: "Annual Conference Registration Now Open",
-      date: "May 15, 2023",
-      category: "events",
-      excerpt: "Registration for the 2023 Annual TAPT Conference is now open. Join us for three days of professional development, networking, and the latest in pupil transportation.",
-      image: "https://images.pexels.com/photos/2977547/pexels-photo-2977547.jpeg?auto=compress&cs=tinysrgb&h=300",
-    },
-    {
-      id: 2,
-      title: "New State Transportation Guidelines Released",
-      date: "April 28, 2023",
-      category: "regulations",
-      excerpt: "The Tennessee Department of Education has released updated guidelines for school transportation. These changes affect driver qualifications, vehicle inspections, and student safety procedures.",
-      image: "https://images.pexels.com/photos/3184432/pexels-photo-3184432.jpeg?auto=compress&cs=tinysrgb&h=300",
-    },
-    {
-      id: 3,
-      title: "Driver Training Workshop Announced",
-      date: "April 10, 2023",
-      category: "events",
-      excerpt: "TAPT will host a comprehensive driver training workshop on June 5-7, 2023. The workshop will focus on emergency procedures, student management, and defensive driving techniques.",
-      image: "https://images.pexels.com/photos/6249579/pexels-photo-6249579.jpeg?auto=compress&cs=tinysrgb&h=300",
-    },
-    {
-      id: 4,
-      title: "Safety Study Shows Declining Incident Rates",
-      date: "March 22, 2023",
-      category: "safety",
-      excerpt: "A recent study conducted by the National Association for Pupil Transportation shows a 12% decrease in school bus-related incidents over the past year. Tennessee ranks among the top states for school transportation safety.",
-      image: "https://images.pexels.com/photos/8055847/pexels-photo-8055847.jpeg?auto=compress&cs=tinysrgb&h=300",
-    },
-    {
-      id: 5,
-      title: "TAPT Presents at National Conference",
-      date: "February 18, 2023",
-      category: "announcements",
-      excerpt: "TAPT representatives presented Tennessee's innovative approach to driver retention at the National Conference on School Transportation. The presentation highlighted strategies that have helped increase driver retention by 15%.",
-      image: "https://images.pexels.com/photos/6801642/pexels-photo-6801642.jpeg?auto=compress&cs=tinysrgb&h=300",
-    },
-    {
-      id: 6,
-      title: "Electric School Bus Pilot Program Expands",
-      date: "January 30, 2023",
-      category: "industry",
-      excerpt: "Three additional Tennessee school districts will join the Electric School Bus Pilot Program in the 2023-2024 school year. This expansion brings the total number of electric buses in the state to 25.",
-      image: "https://images.pexels.com/photos/9799757/pexels-photo-9799757.jpeg?auto=compress&cs=tinysrgb&h=300",
-    },
-    {
-      id: 7,
-      title: "Winter Weather Driving Guidelines Updated",
-      date: "December 15, 2022",
-      category: "safety",
-      excerpt: "TAPT has updated its Winter Weather Driving Guidelines to include new procedures for extreme cold conditions. The document includes input from transportation directors across the state.",
-      image: "https://images.pexels.com/photos/5837166/pexels-photo-5837166.jpeg?auto=compress&cs=tinysrgb&h=300",
-    },
-    {
-      id: 8,
-      title: "TAPT Honors Outstanding Transportation Professionals",
-      date: "November 22, 2022",
-      category: "announcements",
-      excerpt: "TAPT recognized 12 transportation professionals at its annual awards ceremony. Categories included Driver of the Year, Director of the Year, and Lifetime Achievement Award.",
-      image: "https://images.pexels.com/photos/9035381/pexels-photo-9035381.jpeg?auto=compress&cs=tinysrgb&h=300",
-    }
-  ], []);
 
   // Debounced filter updates
   const updateFilters = useCallback((updates: Partial<NewsFilters>) => {
@@ -145,7 +138,7 @@ export const News: React.FC = () => {
     return newsItems.filter(item => {
       const matchesSearch = filters.searchQuery === '' || 
         item.title.toLowerCase().includes(filters.searchQuery.toLowerCase()) || 
-        item.excerpt.toLowerCase().includes(filters.searchQuery.toLowerCase());
+        item.description.toLowerCase().includes(filters.searchQuery.toLowerCase());
         
       const matchesCategory = filters.category === 'all' || item.category === filters.category;
       
@@ -202,13 +195,27 @@ export const News: React.FC = () => {
       {/* News Grid */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredNews.map((item) => (
-              <NewsCard key={item.id} item={item} categoryName={categoryMap[item.category]} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-600">{error}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredNews.map((item) => (
+                <NewsCard 
+                  key={item.id} 
+                  item={item} 
+                  categoryName={categoryMap[item.category] || item.category} 
+                />
+              ))}
+            </div>
+          )}
 
-          {filteredNews.length === 0 && (
+          {!loading && !error && filteredNews.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500">No news items found matching your criteria.</p>
             </div>

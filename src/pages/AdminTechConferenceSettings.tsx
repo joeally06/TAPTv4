@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
+import { Lock, Mail, MapPin, DollarSign, Clock, Save, AlertCircle, ArrowLeft, Trash2, Archive } from 'lucide-react';
 import ConfirmationModal from '../components/ConfirmationModal';
 
-interface ConferenceSettings {
+interface TechConferenceSettings {
   id: string;
   name: string;
   start_date: string;
@@ -18,7 +18,7 @@ interface ConferenceSettings {
   is_active: boolean;
 }
 
-export const AdminConferenceSettings: React.FC = () => {
+export const AdminTechConferenceSettings: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,10 +26,10 @@ export const AdminConferenceSettings: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
-  const [isRollingOver, setIsRollingOver] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [isRollingOver, setIsRollingOver] = useState(false);
   
-  const [settings, setSettings] = useState<ConferenceSettings>({
+  const [settings, setSettings] = useState<TechConferenceSettings>({
     id: crypto.randomUUID(),
     name: '',
     start_date: '',
@@ -37,7 +37,7 @@ export const AdminConferenceSettings: React.FC = () => {
     registration_end_date: '',
     location: '',
     venue: '',
-    fee: 175.00,
+    fee: 250.00,
     payment_instructions: '',
     description: '',
     is_active: true
@@ -54,7 +54,9 @@ export const AdminConferenceSettings: React.FC = () => {
 
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        throw sessionError;
+      }
       
       if (!session) {
         navigate('/admin/login');
@@ -67,7 +69,9 @@ export const AdminConferenceSettings: React.FC = () => {
         .eq('id', session.user.id)
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        throw userError;
+      }
 
       if (!userData || userData.role !== 'admin') {
         await supabase.auth.signOut();
@@ -90,23 +94,26 @@ export const AdminConferenceSettings: React.FC = () => {
       setError(null);
 
       const { data, error } = await supabase
-        .from('conference_settings')
+        .from('tech_conference_settings')
         .select('*')
         .eq('is_active', true)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       if (data) {
         setSettings({
           ...data,
           start_date: data.start_date.split('T')[0],
           end_date: data.end_date.split('T')[0],
-          registration_end_date: data.registration_end_date.split('T')[0]
+          registration_end_date: data.registration_end_date.split('T')[0],
+          is_active: data.is_active
         });
       }
     } catch (error: any) {
-      setError(`Failed to load conference settings: ${error.message}`);
+      setError(`Failed to load tech conference settings: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -129,18 +136,20 @@ export const AdminConferenceSettings: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('conference_settings')
+        .from('tech_conference_settings')
         .upsert({
           ...settings,
           updated_at: new Date().toISOString()
         });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      setSuccess('Conference settings saved successfully!');
+      setSuccess('Tech conference settings saved successfully!');
       await fetchSettings();
     } catch (error: any) {
-      setError(`Failed to save conference settings: ${error.message}`);
+      setError(`Failed to save tech conference settings: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -153,13 +162,13 @@ export const AdminConferenceSettings: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('conference_settings')
+        .from('tech_conference_settings')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000');
 
       if (error) throw error;
 
-      setSuccess('Conference settings cleared successfully!');
+      setSuccess('Tech conference settings cleared successfully!');
       setSettings({
         id: crypto.randomUUID(),
         name: '',
@@ -168,13 +177,13 @@ export const AdminConferenceSettings: React.FC = () => {
         registration_end_date: '',
         location: '',
         venue: '',
-        fee: 175.00,
+        fee: 250.00,
         payment_instructions: '',
         description: '',
         is_active: true
       });
     } catch (error: any) {
-      setError(`Failed to clear conference settings: ${error.message}`);
+      setError(`Failed to clear tech conference settings: ${error.message}`);
     } finally {
       setClearing(false);
       setShowClearModal(false);
@@ -225,7 +234,7 @@ export const AdminConferenceSettings: React.FC = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            type: 'conference',
+            type: 'tech-conference',
             settings: newSettings,
           }),
         }
@@ -233,18 +242,18 @@ export const AdminConferenceSettings: React.FC = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to rollover conference: ${response.statusText}`);
+        throw new Error(errorData.message || `Failed to rollover tech conference: ${response.statusText}`);
       }
 
       const result = await response.json();
       if (!result.success) {
-        throw new Error(result.error || 'Failed to rollover conference');
+        throw new Error(result.error || 'Failed to rollover tech conference');
       }
 
-      setSuccess('Conference rolled over successfully! Previous registrations have been archived.');
+      setSuccess('Tech conference rolled over successfully! Previous registrations have been archived.');
       await fetchSettings();
     } catch (error: any) {
-      setError(`Failed to rollover conference: ${error.message}`);
+      setError(`Failed to rollover tech conference: ${error.message}`);
     } finally {
       setIsRollingOver(false);
       setShowRolloverModal(false);
@@ -271,9 +280,9 @@ export const AdminConferenceSettings: React.FC = () => {
               <ArrowLeft className="h-6 w-6 mr-2" />
               Back to Dashboard
             </button>
-            <h1 className="text-3xl font-bold">Conference Settings</h1>
+            <h1 className="text-3xl font-bold">Tech Conference Settings</h1>
           </div>
-          <p className="mt-2">Manage conference details and registration settings</p>
+          <p className="mt-2">Manage tech conference details and registration settings</p>
         </div>
       </section>
 
@@ -331,12 +340,13 @@ export const AdminConferenceSettings: React.FC = () => {
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
           >
             <Archive className="mr-2 h-5 w-5" />
-            Rollover Conference
+            Rollover Tech Conference
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-lg p-8">
           <div className="space-y-6">
+            {/* Basic Information */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Basic Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -379,6 +389,7 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
+            {/* Dates */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Conference Dates</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -388,7 +399,7 @@ export const AdminConferenceSettings: React.FC = () => {
                   </label>
                   <div className="mt-1 relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Calendar className="h-5 w-5 text-gray-400" />
+                      <Clock className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
                       type="date"
@@ -408,7 +419,7 @@ export const AdminConferenceSettings: React.FC = () => {
                   </label>
                   <div className="mt-1 relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Calendar className="h-5 w-5 text-gray-400" />
+                      <Clock className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
                       type="date"
@@ -444,6 +455,7 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
+            {/* Location */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Location Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -486,6 +498,7 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
+            {/* Additional Information */}
             <div>
               <h2 className="text-xl font-bold text-secondary mb-4">Additional Information</h2>
               
@@ -521,6 +534,7 @@ export const AdminConferenceSettings: React.FC = () => {
               </div>
             </div>
 
+            {/* Submit Button */}
             <div className="pt-6">
               <button
                 type="submit"
@@ -538,7 +552,7 @@ export const AdminConferenceSettings: React.FC = () => {
                 ) : (
                   <>
                     <Save className="mr-2 h-5 w-5" />
-                    Save Conference Settings
+                    Save Tech Conference Settings
                   </>
                 )}
               </button>
@@ -546,12 +560,13 @@ export const AdminConferenceSettings: React.FC = () => {
           </div>
         </form>
 
+        {/* Rollover Modal */}
         {showRolloverModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Rollover Conference</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Rollover Tech Conference</h2>
               <p className="text-gray-600 mb-6">
-                This will archive all current registrations and create a new conference period. Are you sure you want to continue?
+                This will archive all current registrations and create a new tech conference period. Are you sure you want to continue?
               </p>
               <div className="space-y-4 mb-6">
                 <div>
@@ -615,8 +630,8 @@ export const AdminConferenceSettings: React.FC = () => {
           isOpen={showClearModal}
           onClose={() => setShowClearModal(false)}
           onConfirm={handleClearTable}
-          title="Clear Conference Settings"
-          message="Are you sure you want to clear all conference settings? This action cannot be undone."
+          title="Clear Tech Conference Settings"
+          message="Are you sure you want to clear all tech conference settings? This action cannot be undone."
           confirmText="Clear Settings"
           confirmationPhrase="CLEAR SETTINGS"
           isLoading={clearing}
@@ -627,4 +642,4 @@ export const AdminConferenceSettings: React.FC = () => {
   );
 };
 
-export default AdminConferenceSettings;
+export default AdminTechConferenceSettings;

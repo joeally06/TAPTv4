@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ChevronDown, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
   // Toggle mobile menu
   const toggleMenu = () => setIsOpen(!isOpen);
@@ -20,7 +18,6 @@ export const Navbar = () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        setIsAuthenticated(true);
         const { data: userData } = await supabase
           .from('users')
           .select('role')
@@ -29,7 +26,6 @@ export const Navbar = () => {
         
         setIsAdmin(userData?.role === 'admin');
       } else {
-        setIsAuthenticated(false);
         setIsAdmin(false);
       }
     };
@@ -38,7 +34,6 @@ export const Navbar = () => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
-        setIsAuthenticated(true);
         const { data: userData } = await supabase
           .from('users')
           .select('role')
@@ -47,7 +42,6 @@ export const Navbar = () => {
         
         setIsAdmin(userData?.role === 'admin');
       } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
         setIsAdmin(false);
       }
     });
@@ -78,49 +72,49 @@ export const Navbar = () => {
     setIsOpen(false);
   }, [location]);
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
   const navItems = [
     { name: 'Home', path: '/' },
-    { name: 'About', path: '/about' },
+    { 
+      name: 'About', 
+      path: '/about',
+      subItems: [
+        { name: 'Board Members', path: '/board-members' },
+        { name: 'Contact', path: '/contact' }
+      ]
+    },
     { name: 'Resources', path: '/resources' },
     { name: 'News', path: '/news' },
     { 
       name: 'Events',
       path: '/events',
       subItems: [
-        { name: 'Conference Registration', path: '/conference-registration' }
+        { name: 'Conference Registration', path: '/conference-registration' },
+        { name: 'Tech Conference Registration', path: '/tech-conference-registration' }
       ]
     },
     { name: 'Members', path: '/members' },
-    { name: 'Contact', path: '/contact' },
     { 
       name: 'Hall of Fame',
       path: '/hall-of-fame',
       subItems: [
+        { name: 'Members', path: '/hall-of-fame-members' },
         { name: 'Nomination Form', path: '/hall-of-fame-nomination' }
       ]
     }
   ];
 
-  // Add admin items conditionally
-  if (isAdmin) {
-    navItems.push({
-      name: 'Admin',
-      path: '/admin',
-      subItems: [
-        { name: 'Conference Settings', path: '/admin/conference-settings' },
-        { name: 'Conference Registrations', path: '/admin/conference-registrations' }
-      ]
-    });
-  }
+  const adminItems = [
+    { name: 'Dashboard', path: '/admin' },
+    { name: 'Users', path: '/admin/users' },
+    { name: 'Board Members', path: '/admin/board-members' },
+    { name: 'Conference Settings', path: '/admin/conference-settings' },
+    { name: 'Conference Registrations', path: '/admin/conference-registrations' },
+    { name: 'Tech Conference Settings', path: '/admin/tech-conference-settings' },
+    { name: 'Tech Conference Registrations', path: '/admin/tech-conference-registrations' },
+    { name: 'Hall of Fame Settings', path: '/admin/hall-of-fame-settings' },
+    { name: 'Hall of Fame Members', path: '/admin/hall-of-fame-members' },
+    { name: 'Hall of Fame Nominations', path: '/admin/hall-of-fame-nominations' }
+  ];
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -188,26 +182,37 @@ export const Navbar = () => {
               </div>
             ))}
 
-            {isAuthenticated && (
-              <button
-                onClick={handleLogout}
-                className="ml-4 inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90"
-              >
-                <LogOut className="h-4 w-4 mr-1" />
-                Logout
-              </button>
+            {/* Admin Menu */}
+            {isAdmin && (
+              <div className="relative group">
+                <button
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${
+                    location.pathname.startsWith('/admin')
+                      ? 'text-primary border-b-2 border-primary'
+                      : 'text-gray-700 hover:text-primary'
+                  }`}
+                >
+                  Admin
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </button>
+                <div className="absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <div className="py-1">
+                    {adminItems.map((item) => (
+                      <Link
+                        key={item.name}
+                        to={item.path}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="md:hidden flex items-center">
-            {isAuthenticated && (
-              <button
-                onClick={handleLogout}
-                className="mr-4 text-gray-700 hover:text-primary"
-              >
-                <LogOut className="h-6 w-6" />
-              </button>
-            )}
+          <div className="md:hidden">
             <button
               onClick={toggleMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-primary focus:outline-none"
@@ -262,6 +267,30 @@ export const Navbar = () => {
               )}
             </div>
           ))}
+
+          {/* Mobile Admin Menu */}
+          {isAdmin && (
+            <>
+              <div className="px-3 py-2 text-base font-medium text-gray-700">
+                Admin
+              </div>
+              <div className="pl-6">
+                {adminItems.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    className={`block px-3 py-2 rounded-md text-sm font-medium ${
+                      isActive(item.path)
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-primary'
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </nav>

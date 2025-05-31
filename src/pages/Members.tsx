@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { CheckCircle, Users, Calendar, Award, FileText, BookOpen } from 'lucide-react';
 import { 
   validateMembershipForm, 
@@ -14,17 +15,17 @@ export const Members: React.FC = () => {
   }, []);
 
   const [formData, setFormData] = useState<MembershipFormData>({
-    firstName: '',
-    lastName: '',
+    first_name: '',
+    last_name: '',
     email: '',
-    phone: '',
+    phone: null,
     organization: '',
     position: '',
-    membershipType: '',
-    isNewMember: '',
-    hearAboutUs: '',
+    membership_type: '',
+    is_new_member: '',
+    hear_about_us: null,
     interests: [],
-    agreeToTerms: false
+    agree_to_terms: false
   });
 
   const [errors, setErrors] = useState<ValidationError[]>([]);
@@ -45,7 +46,6 @@ export const Members: React.FC = () => {
         [name]: checked
       }));
     } else if (name === 'phone') {
-      // Format phone number as user types
       setFormData(prev => ({
         ...prev,
         [name]: formatPhone(value)
@@ -57,7 +57,6 @@ export const Members: React.FC = () => {
       }));
     }
 
-    // Clear error for this field when user starts typing
     setErrors(prev => prev.filter(error => error.field !== name));
   };
 
@@ -75,7 +74,6 @@ export const Members: React.FC = () => {
       };
     });
 
-    // Clear interests error if at least one is selected
     if (checked) {
       setErrors(prev => prev.filter(error => error.field !== 'interests'));
     }
@@ -86,44 +84,57 @@ export const Members: React.FC = () => {
     setIsSubmitting(true);
     setErrors([]);
 
-    // Validate form
     const validationErrors = validateMembershipForm(formData);
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
       setIsSubmitting(false);
       
-      // Scroll to first error
       const firstErrorField = document.querySelector(`[name="${validationErrors[0].field}"]`);
       firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
     try {
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      const { error } = await supabase
+        .from('membership_applications')
+        .insert([{
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          phone: formData.phone,
+          organization: formData.organization,
+          position: formData.position,
+          membership_type: formData.membership_type,
+          is_new_member: formData.is_new_member,
+          hear_about_us: formData.hear_about_us,
+          interests: formData.interests,
+          agree_to_terms: formData.agree_to_terms
+        }]);
+
+      if (error) throw error;
+
       setSubmitSuccess(true);
       
-      // Reset form after successful submission
       setFormData({
-        firstName: '',
-        lastName: '',
+        first_name: '',
+        last_name: '',
         email: '',
-        phone: '',
+        phone: null,
         organization: '',
         position: '',
-        membershipType: '',
-        isNewMember: '',
-        hearAboutUs: '',
+        membership_type: '',
+        is_new_member: '',
+        hear_about_us: null,
         interests: [],
-        agreeToTerms: false
+        agree_to_terms: false
       });
 
-      // Scroll to top to show success message
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error submitting application:', error);
       setErrors([{ 
         field: 'submit', 
-        message: 'An error occurred while submitting your application. Please try again.' 
+        message: 'Failed to submit application. Please try again.' 
       }]);
     } finally {
       setIsSubmitting(false);
@@ -267,17 +278,17 @@ export const Members: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      name="firstName"
-                      value={formData.firstName}
+                      name="first_name"
+                      value={formData.first_name}
                       onChange={handleInputChange}
                       className={`mt-1 block w-full rounded-md ${
-                        getFieldError('firstName')
+                        getFieldError('first_name')
                           ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-300 focus:border-primary focus:ring-primary'
                       }`}
                     />
-                    {getFieldError('firstName') && (
-                      <p className="mt-2 text-sm text-red-600">{getFieldError('firstName')}</p>
+                    {getFieldError('first_name') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('first_name')}</p>
                     )}
                   </div>
 
@@ -287,17 +298,17 @@ export const Members: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      name="lastName"
-                      value={formData.lastName}
+                      name="last_name"
+                      value={formData.last_name}
                       onChange={handleInputChange}
                       className={`mt-1 block w-full rounded-md ${
-                        getFieldError('lastName')
+                        getFieldError('last_name')
                           ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                           : 'border-gray-300 focus:border-primary focus:ring-primary'
                       }`}
                     />
-                    {getFieldError('lastName') && (
-                      <p className="mt-2 text-sm text-red-600">{getFieldError('lastName')}</p>
+                    {getFieldError('last_name') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('last_name')}</p>
                     )}
                   </div>
 
@@ -328,7 +339,7 @@ export const Members: React.FC = () => {
                     <input
                       type="tel"
                       name="phone"
-                      value={formData.phone}
+                      value={formData.phone || ''}
                       onChange={handleInputChange}
                       placeholder="(123) 456-7890"
                       className={`mt-1 block w-full rounded-md ${
@@ -387,26 +398,151 @@ export const Members: React.FC = () => {
                       <p className="mt-2 text-sm text-red-600">{getFieldError('position')}</p>
                     )}
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Membership Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="membership_type"
+                      value={formData.membership_type}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('membership_type')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    >
+                      <option value="">Select Membership Type</option>
+                      <option value="individual">Individual ($50/year)</option>
+                      <option value="district">District ($200/year)</option>
+                      <option value="vendor">Vendor/Partner ($300/year)</option>
+                    </select>
+                    {getFieldError('membership_type') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('membership_type')}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Are you a new member? <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="is_new_member"
+                      value={formData.is_new_member}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-md ${
+                        getFieldError('is_new_member')
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-primary focus:ring-primary'
+                      }`}
+                    >
+                      <option value="">Please select</option>
+                      <option value="yes">Yes, I'm a new member</option>
+                      <option value="no">No, I'm renewing my membership</option>
+                    </select>
+                    {getFieldError('is_new_member') && (
+                      <p className="mt-2 text-sm text-red-600">{getFieldError('is_new_member')}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
+              {/* Additional Information */}
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold text-secondary">Additional Information</h2>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    How did you hear about us?
+                  </label>
+                  <select
+                    name="hear_about_us"
+                    value={formData.hear_about_us || ''}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                  >
+                    <option value="">Select an option</option>
+                    <option value="colleague">Colleague Referral</option>
+                    <option value="conference">Conference/Event</option>
+                    <option value="search">Internet Search</option>
+                    <option value="social">Social Media</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Areas of Interest <span className="text-red-500">*</span>
+                  </label>
+                  <div className="space-y-2">
+                    {[
+                      'Safety Training',
+                      'Professional Development',
+                      'Policy & Regulations',
+                      'Technology Integration',
+                      'Fleet Management',
+                      'Special Education Transportation',
+                      'Emergency Preparedness',
+                      'Route Planning & Optimization'
+                    ].map((interest) => (
+                      <div key={interest} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={interest.toLowerCase().replace(/\s+/g, '-')}
+                          name="interests"
+                          value={interest}
+                          checked={formData.interests.includes(interest)}
+                          onChange={handleCheckboxChange}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label
+                          htmlFor={interest.toLowerCase().replace(/\s+/g, '-')}
+                          className="ml-2 block text-sm text-gray-700"
+                        >
+                          {interest}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  {getFieldError('interests') && (
+                    <p className="mt-2 text-sm text-red-600">{getFieldError('interests')}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="agree_to_terms"
+                    name="agree_to_terms"
+                    checked={formData.agree_to_terms}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  />
+                  <label htmlFor="agree_to_terms" className="ml-2 block text-sm text-gray-700">
+                    I agree to the <Link to="/terms" className="text-primary hover:underline">terms and conditions</Link> <span className="text-red-500">*</span>
+                  </label>
+                </div>
+                {getFieldError('agree_to_terms') && (
+                  <p className="mt-2 text-sm text-red-600">{getFieldError('agree_to_terms')}</p>
+                )}
+              </div>
+
               {/* Submit Button */}
-              <div className="pt-6">
+              <div>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-full md:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
-                    isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
-                  }`}
+                  className="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-70"
                 >
                   {isSubmitting ? (
-                    <div className="flex items-center justify-center">
-                      <svg className="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Submitting...
-                    </div>
+                      Processing...
+                    </>
                   ) : (
                     'Submit Application'
                   )}
@@ -479,52 +615,8 @@ export const Members: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {/* Testimonials */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-secondary mb-4">Member Testimonials</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Hear from transportation professionals who have benefited from TAPT membership.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                quote: "Being a TAPT member has connected me with a network of professionals who share knowledge and support. The resources and training have been invaluable to our district.",
-                name: "Michael Johnson",
-                title: "Transportation Director",
-                district: "Davidson County Schools"
-              },
-              {
-                quote: "TAPT's conferences and workshops have significantly improved our safety protocols. The organization provides practical solutions to the challenges we face daily.",
-                name: "Karen Williams",
-                title: "Safety Coordinator",
-                district: "Hamilton County Schools"
-              },
-              {
-                quote: "As a new transportation supervisor, TAPT has been essential for my professional development. The mentorship and resources have helped me build a stronger transportation program.",
-                name: "David Rodriguez",
-                title: "Transportation Supervisor",
-                district: "Rutherford County Schools"
-              }
-            ].map((testimonial, index) => (
-              <div key={index} className="bg-white p-6 rounded-lg shadow-md">
-                <svg className="h-8 w-8 text-primary opacity-50 mb-4" fill="currentColor" viewBox="0 0 32 32">
-                  <path d="M9.352 4C4.456 7.456 1 13.12 1 19.36c0 5.088 3.072 8.064 6.624 8.064 3.36 0 5.856-2.688 5.856-5.856 0-3.168-2.208-5.472-5.088-5.472-.576 0-1.344.096-1.536.192.48-3.264 3.552-7.104 6.624-9.024L9.352 4zm16.512 0c-4.8 3.456-8.256 9.12-8.256 15.36 0 5.088 3.072 8.064 6.624 8.064 3.264 0 5.856-2.688 5.856-5.856 0-3.168-2.304-5.472-5.184-5.472-.576 0-1.248.096-1.44.192.48-3.264 3.456-7.104 6.528-9.024L25.864 4z" />
-                </svg>
-                <p className="text-gray-600 italic mb-4">{testimonial.quote}</p>
-                <div className="mt-4">
-                  <p className="font-semibold text-secondary">{testimonial.name}</p>
-                  <p className="text-gray-500 text-sm">{testimonial.title}, {testimonial.district}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   );
 };
+
+export default Members;

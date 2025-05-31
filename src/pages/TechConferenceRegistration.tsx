@@ -8,7 +8,7 @@ interface Attendee {
   email: string;
 }
 
-interface ConferenceSettings {
+interface TechConferenceSettings {
   id: string;
   name: string;
   start_date: string;
@@ -22,7 +22,7 @@ interface ConferenceSettings {
   is_active: boolean;
 }
 
-const ConferenceRegistration: React.FC = () => {
+const TechConferenceRegistration: React.FC = () => {
   const [formData, setFormData] = useState({
     schoolDistrict: '',
     firstName: '',
@@ -43,10 +43,11 @@ const ConferenceRegistration: React.FC = () => {
     message?: string;
   }>({});
 
-  const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings | null>(null);
+  const [conferenceSettings, setConferenceSettings] = useState<TechConferenceSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRegistrationClosed, setIsRegistrationClosed] = useState(false);
+  const [showUnavailablePopup, setShowUnavailablePopup] = useState(false);
 
   useEffect(() => {
     fetchConferenceSettings();
@@ -55,19 +56,20 @@ const ConferenceRegistration: React.FC = () => {
   const fetchConferenceSettings = async () => {
     try {
       const { data, error } = await supabase
-        .from('conference_settings')
+        .from('tech_conference_settings')
         .select('*')
         .eq('is_active', true)
         .single();
 
       if (error) {
-        console.error('Error fetching conference settings:', error);
+        console.error('Error fetching tech conference settings:', error);
         setError('Failed to load conference settings. Please try again later.');
+        setShowUnavailablePopup(true);
         return;
       }
 
       if (!data) {
-        setError('No active conference registration is available at this time.');
+        setShowUnavailablePopup(true);
         return;
       }
 
@@ -89,12 +91,13 @@ const ConferenceRegistration: React.FC = () => {
     } catch (error) {
       console.error('Error:', error);
       setError('An unexpected error occurred. Please try again later.');
+      setShowUnavailablePopup(true);
     } finally {
       setLoading(false);
     }
   };
 
-  const registrationFee = conferenceSettings?.fee ?? 175.00;
+  const registrationFee = conferenceSettings?.fee ?? 250.00;
   const totalAmount = formData.totalAttendees * registrationFee;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -168,7 +171,7 @@ const ConferenceRegistration: React.FC = () => {
     try {
       // First insert the main registration
       const { data: registrationData, error: registrationError } = await supabase
-        .from('conference_registrations')
+        .from('tech_conference_registrations')
         .insert([
           {
             school_district: formData.schoolDistrict,
@@ -181,8 +184,7 @@ const ConferenceRegistration: React.FC = () => {
             email: formData.email,
             phone: formData.phone,
             total_attendees: formData.totalAttendees,
-            total_amount: totalAmount,
-            conference_id: conferenceSettings?.id
+            total_amount: totalAmount
           }
         ])
         .select()
@@ -193,7 +195,7 @@ const ConferenceRegistration: React.FC = () => {
       // Then insert additional attendees if any
       if (formData.additionalAttendees.length > 0) {
         const { error: attendeesError } = await supabase
-          .from('conference_attendees')
+          .from('tech_conference_attendees')
           .insert(
             formData.additionalAttendees.map(attendee => ({
               registration_id: registrationData.id,
@@ -246,12 +248,43 @@ const ConferenceRegistration: React.FC = () => {
 
   return (
     <div className="pt-16">
+      {/* Unavailable Popup */}
+      {showUnavailablePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
+                <h2 className="text-xl font-bold text-gray-900">Registration Unavailable</h2>
+              </div>
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Tech Conference registration is not available at this time. Please check back later or contact us for more information.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowUnavailablePopup(false)}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Conference Registration</h1>
-            <p className="text-xl text-gray-200 mb-8 fade-in">Register for the {conferenceSettings?.name || 'TAPT Annual Conference'} and join transportation professionals from across Tennessee.</p>
+            <h1 className="text-4xl md:text-5xl font-bold mb-6 fade-in">Tech Conference Registration</h1>
+            <p className="text-xl text-gray-200 mb-8 fade-in">Register for the {conferenceSettings?.name || 'TAPT Tech Conference'} and join transportation professionals from across Tennessee.</p>
           </div>
         </div>
       </section>
@@ -262,7 +295,7 @@ const ConferenceRegistration: React.FC = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
               <div className="p-8 md:p-10">
-                <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Annual Conference'}</h2>
+                <h2 className="text-3xl font-bold text-secondary mb-6">{conferenceSettings?.name || 'TAPT Tech Conference'}</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                   <div>
@@ -323,15 +356,31 @@ const ConferenceRegistration: React.FC = () => {
 
                 {/* Registration Deadline Notice */}
                 {conferenceSettings?.registration_end_date && (
-                  <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <div className={`mt-6 p-4 rounded-md ${
+                    isRegistrationClosed 
+                      ? 'bg-red-50 border border-red-200' 
+                      : 'bg-yellow-50 border border-yellow-200'
+                  }`}>
                     <div className="flex items-start">
-                      <AlertCircle className="h-5 w-5 text-yellow-400" />
+                      <AlertCircle className={`h-5 w-5 ${
+                        isRegistrationClosed ? 'text-red-400' : 'text-yellow-400'
+                      }`} />
                       <div className="ml-3">
-                        <h3 className="text-sm font-medium text-yellow-800">
-                          Registration deadline approaching
+                        <h3 className={`text-sm font-medium ${
+                          isRegistrationClosed ? 'text-red-800' : 'text-yellow-800'
+                        }`}>
+                          {isRegistrationClosed 
+                            ? 'Registration is closed'
+                            : 'Registration deadline approaching'
+                          }
                         </h3>
-                        <p className="mt-1 text-sm text-yellow-700">
-                          Registration closes on {new Date(conferenceSettings.registration_end_date).toLocaleDateString()}
+                        <p className={`mt-1 text-sm ${
+                          isRegistrationClosed ? 'text-red-700' : 'text-yellow-700'
+                        }`}>
+                          {isRegistrationClosed
+                            ? `Registration closed on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                            : `Registration closes on ${new Date(conferenceSettings.registration_end_date).toLocaleDateString()}`
+                          }
                         </p>
                       </div>
                     </div>
@@ -351,12 +400,9 @@ const ConferenceRegistration: React.FC = () => {
               <Calendar className="h-16 w-16 text-primary mx-auto mb-6" />
               <h2 className="text-2xl font-bold text-secondary mb-4">Registration has now closed</h2>
               <p className="text-gray-600">
-                Thank you for your interest in the TAPT Conference. Registration is currently closed. 
+                Thank you for your interest in the TAPT Tech Conference. Registration is currently closed. 
                 Please check back later for future events.
               </p>
-              {error && (
-                <p className="mt-4 text-red-600">{error}</p>
-              )}
             </div>
           </div>
         </section>
@@ -686,4 +732,4 @@ const ConferenceRegistration: React.FC = () => {
   );
 };
 
-export default ConferenceRegistration;
+export default TechConferenceRegistration;
